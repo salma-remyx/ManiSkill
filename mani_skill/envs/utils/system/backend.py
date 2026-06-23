@@ -86,7 +86,7 @@ def parse_sim_and_render_backend(sim_backend: str, render_backend: str) -> Backe
     package_name, sim_backend, sim_device_id = parse_backend_device_id(
         sim_backend, sim_backend=True
     )
-    package_name, render_backend, render_device_id = parse_backend_device_id(
+    render_package_name, render_backend, render_device_id = parse_backend_device_id(
         render_backend, sim_backend=False
     )
     return BackendInfo(
@@ -95,7 +95,7 @@ def parse_sim_and_render_backend(sim_backend: str, render_backend: str) -> Backe
         sim_backend_package=package_name,
         sim_backend=f"{package_name}.{sim_backend}"
         + (f":{sim_device_id}" if sim_device_id is not None else ""),
-        render_backend_package=package_name,
-        render_backend=f"{package_name}.{render_backend}"
+        render_backend_package=render_package_name,
+        render_backend=f"{render_package_name}.{render_backend}"
         + (f":{render_device_id}" if render_device_id is not None else ""),
     )

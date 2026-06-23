@@ -1157,7 +1157,6 @@ class BaseEnv(gym.Env):
         """Setup the simulation scene instance.
         The function should be called in reset(). Called by `self._reconfigure`"""
 
-        # create a "global" scene object that users can work with that is linked with all other scenes created
         if self.backend.sim_backend_package == "sapien":
             from mani_skill.sim.sapien import SapienSim
             sim_object = SapienSim(
@@ -1167,6 +1166,8 @@ class BaseEnv(gym.Env):
                 # TODO (stao): figure out how to insert custom configs depending on sim backend
                 cfg=self.sim_config,
             )
+        else:
+            raise NotImplementedError(f"Simulation backend package {self.backend.sim_backend_package} not implemented")
         self.device = sim_object.sim_device_torch
         self._elapsed_steps = (
             torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
