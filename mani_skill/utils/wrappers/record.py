@@ -7,12 +7,10 @@ from typing import Callable, Optional, Union
 import gymnasium as gym
 import h5py
 import numpy as np
-import sapien.physx as physx
-import torch
 
 from mani_skill import get_commit_info
-from mani_skill.envs.sapien_env import BaseEnv
-from mani_skill.utils import common, gym_utils, sapien_utils
+from mani_skill.envs.base_env import BaseEnv
+from mani_skill.utils import common, gym_utils, sim_utils
 from mani_skill.utils.io_utils import dump_json
 from mani_skill.utils.logging_utils import logger
 from mani_skill.utils.structs.types import Array
@@ -255,12 +253,12 @@ class RecordEpisode(gym.Wrapper):
         self.save_on_reset = save_on_reset
         self.save_trajectory = save_trajectory
         if self.base_env.num_envs > 1 and save_video:
-            assert (
-                max_steps_per_video is not None
-            ), "On GPU parallelized environments, \
+            assert max_steps_per_video is not None, (
+                "On GPU parallelized environments, \
                 there must be a given max steps per video value in order to flush videos in order \
                 to avoid issues caused by partial resets. If your environment does not do partial \
                 resets you may set max_steps_per_video equal to the max_episode_steps"
+            )
         self.clean_on_close = clean_on_close
         self.record_reward = record_reward
         self.record_env_state = record_env_state
@@ -278,9 +276,9 @@ class RecordEpisode(gym.Wrapper):
                 episodes=[],
             )
             if self._json_data["env_info"] is not None:
-                self._json_data["env_info"][
-                    "max_episode_steps"
-                ] = self.max_episode_steps
+                self._json_data["env_info"]["max_episode_steps"] = (
+                    self.max_episode_steps
+                )
             if source_type is not None:
                 self._json_data["source_type"] = source_type
             if source_desc is not None:
@@ -386,7 +384,7 @@ class RecordEpisode(gym.Wrapper):
                 self.env.get_wrapper_attr("single_action_space").sample()
             )
             # check if state_dict is consistent
-            if not sapien_utils.is_state_dict_consistent(state_dict):
+            if not sim_utils.is_state_dict_consistent(state_dict):
                 self.record_env_state = False
                 if not self._already_warned_about_state_dict_inconsistency:
                     logger.warn(

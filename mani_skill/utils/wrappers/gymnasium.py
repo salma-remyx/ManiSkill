@@ -1,7 +1,5 @@
 import gymnasium as gym
 import numpy as np
-import sapien.physx as physx
-import torch
 
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.utils import common
@@ -32,12 +30,12 @@ class CPUGymWrapper(gym.Wrapper):
         record_metrics: bool = False,
     ):
         super().__init__(env)
-        assert (
-            self.base_env.num_envs == 1
-        ), "This wrapper is only for environments without parallelization"
-        assert (
-            not self.base_env.gpu_sim_enabled
-        ), "This wrapper is only for environments on the CPU backend"
+        assert self.base_env.num_envs == 1, (
+            "This wrapper is only for environments without parallelization"
+        )
+        assert not self.base_env.gpu_sim_enabled, (
+            "This wrapper is only for environments on the CPU backend"
+        )
         self.observation_space = self.base_env.single_observation_space
         self.action_space = self.base_env.single_action_space
         self.ignore_terminations = ignore_terminations

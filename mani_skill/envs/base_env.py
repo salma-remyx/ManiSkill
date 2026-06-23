@@ -350,7 +350,7 @@ class BaseEnv(gym.Env):
     def _default_sim_config(self):
         return SimConfig()
 
-    def _load_agent(self, options: dict, initial_agent_poses: list[Pose] | None = None, build_separate: bool = False):
+    def _load_agent(self, options: dict, initial_agent_poses: list[Pose] | Pose | None = None, build_separate: bool = False):
         """
         loads the agent/controllable articulations into the environment. The default function provides a convenient way to setup the agent/robot by a robot_uid
         (stored in self.robot_uids) without requiring the user to have to write the robot building and controller code themselves. For more
