@@ -118,6 +118,12 @@ class Articulation(Generic[T]):
     def qpos(self, qpos: Array) -> None:
         raise NotImplementedError()
 
+    def set_qpos(self, qpos: torch.Tensor):
+        """
+        Set the qpos of the articulation.
+        """
+        self.qpos = qpos
+
     @property
     def qvel(self) -> torch.Tensor:
         raise NotImplementedError()
@@ -125,6 +131,12 @@ class Articulation(Generic[T]):
     @qvel.setter
     def qvel(self, qvel: Array) -> None:
         raise NotImplementedError()
+
+    def set_qvel(self, qvel: torch.Tensor):
+        """
+        Set the qvel of the articulation.
+        """
+        self.qvel = qvel
 
     @property
     def root_angular_velocity(self) -> torch.Tensor:
@@ -134,6 +146,12 @@ class Articulation(Generic[T]):
     def root_angular_velocity(self, velocity: Array) -> None:
         raise NotImplementedError()
 
+    def set_root_angular_velocity(self, velocity: torch.Tensor):
+        """
+        Set the angular velocity of the root link.
+        """
+        self.root_angular_velocity = velocity
+
     @property
     def root_linear_velocity(self) -> torch.Tensor:
         raise NotImplementedError()
@@ -142,6 +160,12 @@ class Articulation(Generic[T]):
     def root_linear_velocity(self, velocity: Array) -> None:
         raise NotImplementedError()
 
+    def set_root_linear_velocity(self, velocity: torch.Tensor):
+        """
+        Set the linear velocity of the root link.
+        """
+        self.root_linear_velocity = velocity
+
     @property
     def root_pose(self) -> Pose:
         raise NotImplementedError()
@@ -149,6 +173,12 @@ class Articulation(Generic[T]):
     @root_pose.setter
     def root_pose(self, pose: "Pose") -> None:
         raise NotImplementedError()
+
+    def set_root_pose(self, pose: Pose):
+        """
+        Set the pose of the root link.
+        """
+        self.root_pose = pose
 
     @property
     def linear_velocity(self) -> torch.Tensor:
