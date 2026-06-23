@@ -178,8 +178,8 @@ class PickClutterEnv(BaseEnv):
 
     def evaluate(self):
         return {
-            "success": torch.zeros(self.num_envs, device=self.device, dtype=bool),
-            "fail": torch.zeros(self.num_envs, device=self.device, dtype=bool),
+            "success": torch.zeros(self.num_envs, device=self.device, dtype=torch.bool),
+            "fail": torch.zeros(self.num_envs, device=self.device, dtype=torch.bool),
         }
 
     def _get_obs_extra(self, info: dict):
