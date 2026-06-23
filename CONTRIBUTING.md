@@ -13,13 +13,20 @@ We recommend using Python 3.13 to build and develop on ManiSkill, although we cu
 git clone https://github.com/mani-skill/ManiSkill.git
 cd ManiSkill
 uv venv --python 3.13
-uv pip install -e ".[dev]"
+uv sync
 ```
 
 Then setup pre-commit with
 
 ```bash
 pre-commit install
+```
+
+If testing code with a specific simulator backend, run one of the following
+
+```bash
+uv sync --extra sapien
+uv sync --extra newton
 ```
 
 ## Testing
