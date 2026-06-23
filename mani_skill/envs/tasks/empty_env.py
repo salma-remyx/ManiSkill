@@ -40,7 +40,7 @@ class EmptyEnv(BaseEnv):
             half_size=0.05,
             color=[1, 0, 0, 1],
             name="cube",
-            body_type="kinematic",
+            body_type="dynamic",
             initial_pose=Pose.create_from_pq(p=[0, 0, 0.2]),
         )
         # self.ground.set_collision_group_bit(group=2, bit_idx=30, bit=1)

@@ -1347,7 +1347,7 @@ class BaseEnv(gym.Env):
 
             from mani_skill.sim.newton.sim import NewtonSim
 
-            viewer = newton.viewer.ViewerGL()
+            viewer = newton.viewer.ViewerGL(paused=True)
             render_sim = cast(NewtonSim, self.scene.render_sim)
             viewer.set_model(render_sim._model)
             self._viewer = viewer
