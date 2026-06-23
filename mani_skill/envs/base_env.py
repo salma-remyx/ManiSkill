@@ -1,7 +1,7 @@
 import copy
 import gc
 from functools import cached_property
-from typing import Any, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Optional, Sequence, Union, cast
 
 import dacite
 import gymnasium as gym
@@ -111,7 +111,7 @@ class BaseEnv(gym.Env):
     """
 
     # fmt: off
-    SUPPORTED_ROBOTS: Optional[list[Union[str, Tuple[str]]]] = None
+    SUPPORTED_ROBOTS: Optional[list[Union[str, Sequence[str]]]] = None
     """Override this to enforce which robots or tuples of robots together are supported in the task. During env creation,
     setting robot_uids auto loads all desired robots into the scene, but not all tasks are designed to support some robot setups"""
     SUPPORTED_OBS_MODES = ("state", "state_dict", "none", "sensor_data", "any_textures", "pointcloud")
@@ -350,7 +350,7 @@ class BaseEnv(gym.Env):
     def _default_sim_config(self):
         return SimConfig()
 
-    def _load_agent(self, options: dict, initial_agent_poses: Pose | None = None, build_separate: bool = False):
+    def _load_agent(self, options: dict, initial_agent_poses: list[Pose] | None = None, build_separate: bool = False):
         """
         loads the agent/controllable articulations into the environment. The default function provides a convenient way to setup the agent/robot by a robot_uid
         (stored in self.robot_uids) without requiring the user to have to write the robot building and controller code themselves. For more

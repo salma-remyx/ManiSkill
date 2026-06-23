@@ -1,7 +1,4 @@
-from typing import Union
-
 import numpy as np
-import sapien
 import torch
 
 from mani_skill import PACKAGE_ASSET_DIR
@@ -9,7 +6,7 @@ from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, io_utils, sapien_utils
+from mani_skill.utils import camera_utils, common, io_utils
 from mani_skill.utils.building import articulations
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table.scene_builder import TableSceneBuilder
@@ -27,7 +24,7 @@ from mani_skill.utils.structs.types import SimConfig
 class TurnFaucetEnv(BaseEnv):
     SUPPORTED_REWARD_MODES = ["sparse", "none"]
     SUPPORTED_ROBOTS = ["panda", "panda_wristcam", "fetch"]
-    agent: Union[Panda, Fetch]
+    agent: Panda | Fetch
     TRAIN_JSON = PACKAGE_ASSET_DIR / "partnet_mobility/meta/info_faucet_train.json"
 
     def __init__(
@@ -62,18 +59,18 @@ class TurnFaucetEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at([-0.4, 0, 0.3], [0, 0, 0.1])
+        pose = camera_utils.look_at([-0.4, 0, 0.3], [0, 0, 0.1])
         return [
             CameraConfig("base_camera", pose=pose, width=128, height=128, fov=np.pi / 2)
         ]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.5, 0.5, 1.0], [0.0, 0.0, 0.5])
+        pose = camera_utils.look_at([0.5, 0.5, 1.0], [0.0, 0.0, 0.5])
         return CameraConfig("render_camera", pose=pose, width=512, height=512, fov=1)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.scene_builder = TableSceneBuilder(
@@ -97,7 +94,9 @@ class TurnFaucetEnv(BaseEnv):
                 urdf_config=dict(density=model_info.get("density", 8e3)),
             )
             builder.set_scene_idxs(scene_idxs=[i])
-            builder.initial_pose = sapien.Pose(p=[0, 0, model_info["offset"][2]])
+            builder.initial_pose = Pose.create_from_pq(
+                p=[0, 0, model_info["offset"][2]]
+            )
             faucet = builder.build(name=f"{model_id}-{i}")
             self.remove_from_state_dict_registry(faucet)
             for joint in faucet.active_joints:
@@ -116,6 +115,9 @@ class TurnFaucetEnv(BaseEnv):
             self._target_switch_links.append(switch_link)
             switch_link.joint.set_friction(0.1)
             switch_link.joint.set_drive_properties(0.0, 2.0)
+            from mani_skill.utils import sapien_utils
+
+            # TODO: remove sapien dependency for this task
             sapien_utils.set_articulation_render_material(
                 faucet._objs[0],
                 color=sapien_utils.hex2rgba("#AAAAAA"),

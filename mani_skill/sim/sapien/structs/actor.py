@@ -229,16 +229,6 @@ class SapienActor(PhysxRigidDynamicComponentStruct[sapien.Entity], Actor):
                     sapien.render.RenderBodyComponent
                 ).visibility = 1  # type: ignore
 
-    def is_static(self, lin_thresh=1e-2, ang_thresh=1e-1):
-        """
-        Checks if this actor is static within the given linear velocity threshold `lin_thresh`
-        and angular velocity threshold `ang_thresh`
-        """
-        return torch.logical_and(
-            torch.linalg.norm(self.linear_velocity, axis=1) <= lin_thresh,
-            torch.linalg.norm(self.angular_velocity, axis=1) <= ang_thresh,
-        )
-
     def set_collision_group_bit(self, group: int, bit_idx: int, bit: Union[int, bool]):
         """Set's a specific collision group bit for all collision shapes in all parallel actors"""
         bit = int(bit)

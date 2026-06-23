@@ -1,14 +1,11 @@
-from typing import Union
-
 import numpy as np
-import sapien
 import torch
 
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -37,7 +34,7 @@ class StackPyramidEnv(BaseEnv):
     SUPPORTED_ROBOTS = ["panda_wristcam", "panda", "fetch"]
     SUPPORTED_REWARD_MODES = ["none", "sparse"]
 
-    agent: Union[Panda, Fetch]
+    agent: Panda | Fetch
 
     def __init__(
         self, *args, robot_uids="panda_wristcam", robot_init_qpos_noise=0.02, **kwargs
@@ -47,12 +44,12 @@ class StackPyramidEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.4], target=[-0.05, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.4], target=[-0.05, 0, 0.1])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_scene(self, options: dict):
@@ -66,21 +63,21 @@ class StackPyramidEnv(BaseEnv):
             half_size=0.02,
             color=[1, 0, 0, 1],
             name="cubeA",
-            initial_pose=sapien.Pose(p=[0, 0, 0.2]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, 0.2]),
         )
         self.cubeB = actors.build_cube(
             self.scene,
             half_size=0.02,
             color=[0, 1, 0, 1],
             name="cubeB",
-            initial_pose=sapien.Pose(p=[1, 0, 0.2]),
+            initial_pose=Pose.create_from_pq(p=[1, 0, 0.2]),
         )
         self.cubeC = actors.build_cube(
             self.scene,
             half_size=0.02,
             color=[0, 0, 1, 1],
             name="cubeC",
-            initial_pose=sapien.Pose(p=[-1, 0, 0.2]),
+            initial_pose=Pose.create_from_pq(p=[-1, 0, 0.2]),
         )
 
     def _initialize_episode(self, env_idx: torch.Tensor, options: dict):
@@ -91,7 +88,7 @@ class StackPyramidEnv(BaseEnv):
             xyz = torch.zeros((b, 3), device=self.device)
             xyz[:, 2] = 0.02
             xy = xyz[:, :2]
-            region = [[-0.1, -0.2], [0.1, 0.2]]
+            region = ([-0.1, -0.2], [0.1, 0.2])
             sampler = randomization.UniformPlacementSampler(
                 bounds=region, batch_size=b, device=self.device
             )

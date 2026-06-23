@@ -1,7 +1,6 @@
 from typing import Any, Tuple
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill.agents.multi_agent import MultiAgent
@@ -9,7 +8,7 @@ from mani_skill.agents.robots.panda import Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -64,17 +63,18 @@ class TwoRobotPickCube(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at([1.0, 0, 0.75], [0.0, 0.0, 0.25])
+        pose = camera_utils.look_at([1.0, 0, 0.75], [0.0, 0.0, 0.25])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([1.4, 0.8, 0.75], [0.0, 0.1, 0.1])
+        pose = camera_utils.look_at([1.4, 0.8, 0.75], [0.0, 0.1, 0.1])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
         super()._load_agent(
-            options, [sapien.Pose(p=[0, -1, 0]), sapien.Pose(p=[0, 1, 0])]
+            options,
+            [Pose.create_from_pq(p=[0, -1, 0]), Pose.create_from_pq(p=[0, 1, 0])],
         )
 
     def _load_scene(self, options: dict):
@@ -87,7 +87,7 @@ class TwoRobotPickCube(BaseEnv):
             half_size=self.cube_half_size,
             color=[1, 0, 0, 1],
             name="cube",
-            initial_pose=sapien.Pose(p=[0, 0, 0.02]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, 0.02]),
         )
         self.goal_site = actors.build_sphere(
             self.scene,
@@ -96,7 +96,7 @@ class TwoRobotPickCube(BaseEnv):
             name="goal_site",
             body_type="kinematic",
             add_collision=False,
-            initial_pose=sapien.Pose(),
+            initial_pose=Pose.create_from_pq(),
         )
         self._hidden_objects.append(self.goal_site)
 
@@ -184,7 +184,6 @@ class TwoRobotPickCube(BaseEnv):
         stage_2_reward = reaching_reward
 
         # condition for good grasp: both fingers are at the same height and open
-        self.right_agent: Panda
         right_tip_1_height = self.right_agent.finger1_link.pose.p[:, 2]
         right_tip_2_height = self.right_agent.finger2_link.pose.p[:, 2]
         tip_height_reward = 1 - torch.tanh(

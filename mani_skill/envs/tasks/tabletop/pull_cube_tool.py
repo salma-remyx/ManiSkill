@@ -1,18 +1,17 @@
 from typing import Any, Union
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
-from mani_skill.utils.structs import Pose
+from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import GPUMemoryConfig, SimConfig
 
 
@@ -61,7 +60,7 @@ class PullCubeToolEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.5], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.5], target=[-0.1, 0, 0.1])
         return [
             CameraConfig(
                 "base_camera",
@@ -76,7 +75,7 @@ class PullCubeToolEnv(BaseEnv):
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
         return [
             CameraConfig(
                 "render_camera",
@@ -90,6 +89,8 @@ class PullCubeToolEnv(BaseEnv):
         ]
 
     def _build_l_shaped_tool(self, handle_length, hook_length, width, height):
+        import sapien.render
+
         builder = self.scene.create_actor_builder()
 
         mat = sapien.render.RenderMaterial()
@@ -99,22 +100,22 @@ class PullCubeToolEnv(BaseEnv):
         mat.specular = 1.0
 
         builder.add_box_collision(
-            sapien.Pose([handle_length / 2, 0, 0]),
+            Pose.create_from_pq(p=[handle_length / 2, 0, 0]),
             [handle_length / 2, width / 2, height / 2],
             density=500,
         )
         builder.add_box_visual(
-            sapien.Pose([handle_length / 2, 0, 0]),
+            Pose.create_from_pq(p=[handle_length / 2, 0, 0]),
             [handle_length / 2, width / 2, height / 2],
             material=mat,
         )
 
         builder.add_box_collision(
-            sapien.Pose([handle_length - hook_length / 2, width, 0]),
+            Pose.create_from_pq(p=[handle_length - hook_length / 2, width, 0]),
             [hook_length / 2, width, height / 2],
         )
         builder.add_box_visual(
-            sapien.Pose([handle_length - hook_length / 2, width, 0]),
+            Pose.create_from_pq(p=[handle_length - hook_length / 2, width, 0]),
             [hook_length / 2, width, height / 2],
             material=mat,
         )

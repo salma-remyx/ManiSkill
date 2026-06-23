@@ -1,15 +1,13 @@
 from typing import Any
 
 import numpy as np
-import sapien
 import torch
-import torch.random
 from transforms3d.euler import euler2quat
 
 from mani_skill.agents.robots import PandaStick
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
 from mani_skill.utils.structs import Pose
@@ -41,10 +39,12 @@ class WhiteTableSceneBuilder(TableSceneBuilder):
                 + qpos
             )
             self.env.agent.reset(qpos)
-            self.env.agent.robot.set_pose(sapien.Pose([-0.615, 0, 0]))
+            self.env.agent.robot.set_pose(Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def build(self):
         super().build()
+        import sapien.render
+
         # cheap way to un-texture table
         for part in self.table._objs:
             for triangle in (
@@ -130,7 +130,7 @@ class PushTEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return [
             CameraConfig(
                 "base_camera",
@@ -145,15 +145,18 @@ class PushTEnv(BaseEnv):
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return CameraConfig(
             "render_camera", pose=pose, width=512, height=512, fov=1, near=0.01, far=100
         )
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
+        import sapien.physx
+        import sapien.render
+
         # have to put these parmaeters to device - defined before we had access to device
         # load scene is a convienent place for this one time operation
         self.ee_starting_pos2D = self.ee_starting_pos2D.to(self.device)
@@ -186,11 +189,11 @@ class PushTEnv(BaseEnv):
             com_y = 0.0375
 
             builder = self.scene.create_actor_builder()
-            first_block_pose = sapien.Pose([0.0, 0.0 - com_y, 0.0])
+            first_block_pose = Pose.create_from_pq(p=[0.0, 0.0 - com_y, 0.0])
             first_block_size = [box1_half_w, box1_half_h, half_thickness]
             if not target:
                 builder._mass = self.T_mass
-                tee_material = sapien.pysapien.physx.PhysxMaterial(
+                tee_material = sapien.physx.PhysxMaterial(
                     static_friction=self.T_dynamic_friction,
                     dynamic_friction=self.T_static_friction,
                     restitution=0,
@@ -211,7 +214,9 @@ class PushTEnv(BaseEnv):
 
             # for the second block (vertical part), we translate y by 4*(box1_half_h)-com_y to align flush with horizontal block
             # note that the cad model tee made here is upside down
-            second_block_pose = sapien.Pose([0.0, 4 * (box1_half_h) - com_y, 0.0])
+            second_block_pose = Pose.create_from_pq(
+                p=[0.0, 4 * (box1_half_h) - com_y, 0.0]
+            )
             second_block_size = [box1_half_h, (3 / 4) * (box1_half_w), half_thickness]
             if not target:
                 builder.add_box_collision(
@@ -227,7 +232,7 @@ class PushTEnv(BaseEnv):
                     base_color=base_color,
                 ),
             )
-            builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+            builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
             if not target:
                 return builder.build(name=name)
             else:
@@ -249,7 +254,7 @@ class PushTEnv(BaseEnv):
                 base_color=np.array([128, 128, 128, 255]) / 255
             ),
         )
-        builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+        builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
         self.ee_goal_pos = builder.build_kinematic(name="goal_ee")
 
         # Rest of function is setting up for Custom 2D "Pseudo-Rendering" function below

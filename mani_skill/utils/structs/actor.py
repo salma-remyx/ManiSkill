@@ -135,3 +135,13 @@ class Actor(Generic[T]):
         Set the pose of the actor.
         """
         self.pose = pose
+
+    def is_static(self, lin_thresh=1e-2, ang_thresh=1e-1):
+        """
+        Checks if this actor is static within the given linear velocity threshold `lin_thresh`
+        and angular velocity threshold `ang_thresh`
+        """
+        return torch.logical_and(
+            torch.linalg.norm(self.linear_velocity, axis=1) <= lin_thresh,
+            torch.linalg.norm(self.angular_velocity, axis=1) <= ang_thresh,
+        )

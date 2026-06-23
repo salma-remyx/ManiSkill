@@ -1,7 +1,6 @@
 from typing import Any, Union
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -9,7 +8,7 @@ from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building import actors
 from mani_skill.utils.geometry import rotation_conversions
 from mani_skill.utils.registration import register_env
@@ -49,16 +48,16 @@ class PokeCubeEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.6, 0.7, 0.6], [0.2, 0.2, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.2, 0.2, 0.35])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.table_scene = TableSceneBuilder(
@@ -72,7 +71,7 @@ class PokeCubeEnv(BaseEnv):
             color=[1, 0, 0, 1],
             name="cube",
             body_type="dynamic",
-            initial_pose=sapien.Pose(p=[1, 0, self.cube_half_size]),
+            initial_pose=Pose.create_from_pq(p=[1, 0, self.cube_half_size]),
         )
 
         self.peg = actors.build_twocolor_peg(
@@ -83,7 +82,7 @@ class PokeCubeEnv(BaseEnv):
             color_2=np.array([12, 42, 160, 255]) / 255,
             name="peg",
             body_type="dynamic",
-            initial_pose=sapien.Pose(p=[0, 0, self.peg_half_width]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, self.peg_half_width]),
         )
 
         self.goal_region = actors.build_red_white_target(
@@ -93,7 +92,7 @@ class PokeCubeEnv(BaseEnv):
             name="goal_region",
             add_collision=False,
             body_type="kinematic",
-            initial_pose=sapien.Pose(),
+            initial_pose=Pose.create_from_pq(p=[0, 0, 0]),
         )
 
         self.peg_head_offsets = Pose.create_from_pq(

@@ -110,6 +110,12 @@ class Articulation(Generic[T]):
     def qf(self, qf: Array) -> None:
         raise NotImplementedError()
 
+    def set_qf(self, qf: torch.Tensor):
+        """
+        Set the qf of the articulation.
+        """
+        self.qf = qf
+
     @property
     def qpos(self) -> torch.Tensor:
         raise NotImplementedError()

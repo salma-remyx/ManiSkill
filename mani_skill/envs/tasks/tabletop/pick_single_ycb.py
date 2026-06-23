@@ -193,7 +193,7 @@ class PickSingleYCBEnv(BaseEnv):
                     0, self.robot_init_qpos_noise, len(qpos) - 2
                 )
                 self.agent.reset(qpos)
-                self.agent.robot.set_root_pose(sapien.Pose([-0.615, 0, 0]))
+                self.agent.robot.set_root_pose(Pose.create_from_pq(p=[-0.615, 0, 0]))
             else:
                 raise NotImplementedError(self.robot_uids)
 
