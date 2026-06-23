@@ -25,6 +25,26 @@ class SapienCameraConfig(CameraConfig):
     """The shader config to use for rendering. If None, the shader_pack will be used to search amongst prebuilt shader configs to create a ShaderConfig."""
     mount: SapienActor | SapienLink | None = None
 
+    @classmethod
+    def from_generic_camera_config(cls, cfg: CameraConfig):
+        sapien_kwargs = cfg.sapien_kwargs.copy()
+        shader_pack = sapien_kwargs.pop("shader_pack", "default")
+        shader_config = PREBUILT_SHADER_CONFIGS[shader_pack]
+        return cls(
+            uid=cfg.uid,
+            pose=cfg.pose,
+            width=cfg.width,
+            height=cfg.height,
+            fov=cfg.fov,
+            near=cfg.near,
+            far=cfg.far,
+            intrinsic=cfg.intrinsic,
+            entity_uid=cfg.entity_uid,
+            shader_pack=shader_pack,
+            shader_config=shader_config,
+            mount=cast(SapienActor | SapienLink | None, cfg.mount),
+        )
+
     def __post_init__(self):
         self.pose = Pose.create(self.pose)
         if self.shader_config is None:

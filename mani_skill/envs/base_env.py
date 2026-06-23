@@ -425,7 +425,18 @@ class BaseEnv(gym.Env):
         self,
     ) -> CameraConfig:
         """Default configuration for the viewer camera, controlling shader, fov, etc. By default if there is a human render camera called "render_camera" then the viewer will use that camera's pose."""
-        return CameraConfig(uid="viewer", pose=Pose.create_from_pq([0, 0, 1]), width=1920, height=1080, shader_pack="default", near=0.0, far=1000, fov=np.pi / 2)
+        return CameraConfig(
+            uid="viewer",
+            pose=Pose.create_from_pq([0, 0, 1]),
+            width=1920,
+            height=1080,
+            near=0.0,
+            far=1000,
+            fov=np.pi / 2,
+            sapien_kwargs=dict(
+                shader_pack="default",
+            )
+        )
 
     @property
     def sim_freq(self) -> int:
@@ -740,21 +751,22 @@ class BaseEnv(gym.Env):
         self._sensor_configs = dict()
 
         # Add task/external sensors
-        self._sensor_configs.update(parse_sensor_configs(self._default_sensor_configs))
+        self._sensor_configs.update(
+            parse_sensor_configs(self._default_sensor_configs, render_backend_package=self.backend.render_backend_package))
 
         # Add agent sensors
         self._agent_sensor_configs = dict()
         if self.agent is not None:
-            self._agent_sensor_configs = parse_sensor_configs(self.agent._sensor_configs)
+            self._agent_sensor_configs = parse_sensor_configs(self.agent._sensor_configs, render_backend_package=self.backend.render_backend_package)
             self._sensor_configs.update(self._agent_sensor_configs)
 
         # Add human render camera configs
         self._human_render_camera_configs = parse_sensor_configs(
-            self._default_human_render_camera_configs
+            self._default_human_render_camera_configs, render_backend_package=self.backend.render_backend_package
         )
 
         _viewer_camera_config_dict = parse_sensor_configs(
-            self._default_viewer_camera_configs
+            self._default_viewer_camera_configs, render_backend_package=self.backend.render_backend_package
         )
 
         # Override camera configurations with user supplied configurations

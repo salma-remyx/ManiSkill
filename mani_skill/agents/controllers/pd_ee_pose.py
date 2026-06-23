@@ -6,7 +6,7 @@ import torch
 from gymnasium import spaces
 
 from mani_skill.agents.controllers.utils.kinematics import Kinematics
-from mani_skill.utils import gym_utils, sapien_utils
+from mani_skill.utils import gym_utils
 from mani_skill.utils.geometry.rotation_conversions import (
     euler_angles_to_matrix,
     matrix_to_quaternion,
@@ -29,9 +29,9 @@ class PDEEPosController(PDJointPosController):
     root_link: Link
 
     def _check_gpu_sim_works(self):
-        assert (
-            self.config.frame == "root_translation"
-        ), "currently only translation in the root frame for EE control is supported in GPU sim"
+        assert self.config.frame == "root_translation", (
+            "currently only translation in the root frame for EE control is supported in GPU sim"
+        )
 
     def _initialize_joints(self):
         self.initial_qpos = None
@@ -48,12 +48,10 @@ class PDEEPosController(PDJointPosController):
         self.ee_link = self.kinematics.end_link
 
         if self.config.root_link_name is not None:
-            root_link = sapien_utils.get_obj_by_name(
-                self.articulation.get_links(), self.config.root_link_name
+            root_link = self.articulation.links_map[self.config.root_link_name]
+            assert self.root_link is not None and isinstance(root_link, Link), (
+                f"Root link {self.config.root_link_name} matches more than one link or was not found"
             )
-            assert self.root_link is not None and isinstance(
-                root_link, Link
-            ), f"Root link {self.config.root_link_name} matches more than one link or was not found"
             self.root_link = root_link
         else:
             self.root_link = self.articulation.root
@@ -83,9 +81,9 @@ class PDEEPosController(PDJointPosController):
                 self._target_pose = self.ee_pose_at_base
             else:
                 # TODO (stao): this is a strange way to mask setting individual batched pose parts
-                self._target_pose.raw_pose[
-                    self.scene._reset_mask
-                ] = self.ee_pose_at_base.raw_pose[self.scene._reset_mask]
+                self._target_pose.raw_pose[self.scene._reset_mask] = (
+                    self.ee_pose_at_base.raw_pose[self.scene._reset_mask]
+                )
 
     def compute_target_pose(self, prev_ee_pose_at_base, action):
         # Keep the current rotation and change the position
@@ -125,9 +123,7 @@ class PDEEPosController(PDJointPosController):
             )
 
         _target_qpos = self.kinematics.compute_ik(
-            pose=self._target_pose
-            if ik_via_target_pose
-            else action,  # pyright: ignore[reportArgumentType]
+            pose=self._target_pose if ik_via_target_pose else action,  # pyright: ignore[reportArgumentType]
             q0=self.articulation.get_qpos(),
             is_delta_pose=not ik_via_target_pose and self.config.use_delta,
             current_pose=self.ee_pose_at_base,
@@ -210,9 +206,9 @@ class PDEEPoseController(PDEEPosController):
     config: "PDEEPoseControllerConfig"
 
     def _check_gpu_sim_works(self):
-        assert (
-            self.config.frame == "root_translation:root_aligned_body_rotation"
-        ), "currently only translation in the root frame for EE control is supported in GPU sim"
+        assert self.config.frame == "root_translation:root_aligned_body_rotation", (
+            "currently only translation in the root frame for EE control is supported in GPU sim"
+        )
 
     def _initialize_action_space(self):
         low = np.float32(
@@ -265,9 +261,9 @@ class PDEEPoseController(PDEEPosController):
                 )
             target_pose = Pose.create_from_pq(p, q)
         else:
-            assert (
-                self.config.frame == "root_translation:root_aligned_body_rotation"
-            ), self.config.frame
+            assert self.config.frame == "root_translation:root_aligned_body_rotation", (
+                self.config.frame
+            )
             target_pos, target_rot = action[:, 0:3], action[:, 3:6]
             target_quat = matrix_to_quaternion(
                 euler_angles_to_matrix(target_rot, "XYZ")
@@ -279,7 +275,6 @@ class PDEEPoseController(PDEEPosController):
 
 @dataclass
 class PDEEPoseControllerConfig(PDEEPosControllerConfig):
-
     rot_lower: Union[float, Sequence[float]] = -2 * np.pi
     """Lower bound for rotation control. If a single float then X, Y, and Z rotations are bounded by this value. Otherwise can be three floats to specify each dimensions bounds"""
     rot_upper: Union[float, Sequence[float]] = 2 * np.pi

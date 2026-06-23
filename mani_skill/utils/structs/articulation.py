@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Generic, TypeVar
 
 import torch
 
 from mani_skill.utils.structs.base import BaseStruct
+from mani_skill.utils.structs.link import Link
 
 T = TypeVar("T", bound=BaseStruct)
 
@@ -24,6 +25,14 @@ class Articulation(Generic[T]):
 
     name: str = ""
     """The name of the articulation. Must be unique within the scene."""
+
+    links: list[Link] = field(default_factory=list)
+    """List of Link objects forming the articulation"""
+    links_map: dict[str, Link] = field(default_factory=dict)
+    """Maps link name to the Link object"""
+
+    root: Link = None
+    """The root Link"""
 
     @classmethod
     def merge(

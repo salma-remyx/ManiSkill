@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Sequence, TypedDict, TypeVar
 
-import sapien
 import torch
 
-from mani_skill.render import PREBUILT_SHADER_CONFIGS, ShaderConfig
 from mani_skill.sim.base_sim import BaseSim
 from mani_skill.sim.sensors.base_sensor import BaseSensor, BaseSensorConfig
 from mani_skill.utils.structs.actor import Actor
@@ -15,8 +13,6 @@ from mani_skill.utils.structs.articulation import Articulation
 from mani_skill.utils.structs.link import Link
 from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import Array
-
-# if TYPE_CHECKING:
 
 
 class CameraParams(TypedDict):
@@ -47,17 +43,15 @@ class CameraConfig(BaseSensorConfig):
     """unique id of the entity to mount the camera. Defaults to None. Only used by agent classes that want to define mounted cameras."""
     mount: Actor | Link | None = None
     """the Actor or Link to mount the camera on top of. This means the global pose of the mounted camera is now mount.pose * local_pose"""
-    shader_pack: str = "minimal"
-    """The shader to use for rendering. Defaults to "minimal" which is the fastest rendering system with minimal GPU memory usage. There is also ``default`` and ``rt``."""
-    shader_config: ShaderConfig | None = None
-    """The shader config to use for rendering. If None, the shader_pack will be used to search amongst prebuilt shader configs to create a ShaderConfig."""
+    sapien_kwargs: dict[str, str] = field(default_factory=dict)
+    """kwargs to pass to the sapien camera constructor"""
 
-    def __post_init__(self):
-        self.pose = Pose.create(self.pose)
-        if self.shader_config is None:
-            self.shader_config = PREBUILT_SHADER_CONFIGS[self.shader_pack]
-        else:
-            self.shader_pack = self.shader_config.shader_pack
+    @classmethod
+    def from_generic_camera_config(cls, cfg: CameraConfig):
+        """
+        Parse a generic CameraConfig into the appropriate CameraConfig subclass.
+        """
+        raise NotImplementedError()
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + "(" + str(self.__dict__) + ")"
@@ -99,6 +93,8 @@ def update_sensor_configs_from_dict(
             v = copy.deepcopy(v)
             # for json serailizable gym.make args, user has to pass a list, not a Pose object.
             if "pose" in v and isinstance(v["pose"], list):
+                import sapien  # TODO (stao): remove this
+
                 v["pose"] = sapien.Pose(v["pose"][:3], v["pose"][3:])
             config.__dict__.update(v)
     for config in sensor_configs.values():
@@ -108,15 +104,36 @@ def update_sensor_configs_from_dict(
 
 def parse_sensor_configs(
     sensor_configs: Sequence[T] | dict[str, T] | T,
+    render_backend_package: str,
 ) -> dict[str, T]:
+    """
+    Given sensor configs defined in any form, parse them into a dictionary of CameraConfig objects.
+    Depending on the render backend package, the sensor configs will be parsed into the appropriate
+    CameraConfig subclass.
+
+    Args:
+        sensor_configs: Sensor configs defined in any form.
+        render_backend_package: The render backend package to use.
+
+    Returns:
+        A dictionary of CameraConfig objects.
+    """
     if isinstance(sensor_configs, (tuple, list)):
-        return dict([(config.uid, config) for config in sensor_configs])
+        sensor_configs = dict([(config.uid, config) for config in sensor_configs])
     elif isinstance(sensor_configs, dict):
-        return dict(sensor_configs)
+        sensor_configs = dict(sensor_configs)
     elif isinstance(sensor_configs, BaseSensorConfig):
-        return dict([(sensor_configs.uid, sensor_configs)])
+        sensor_configs = dict([(sensor_configs.uid, sensor_configs)])
     else:
         raise TypeError(type(sensor_configs))
+    for k in sensor_configs.keys():
+        cfg = sensor_configs[k]
+        if isinstance(cfg, CameraConfig):
+            if render_backend_package == "sapien":
+                from mani_skill.sim.sapien.sensors.camera import SapienCameraConfig
+
+                sensor_configs[k] = SapienCameraConfig.from_generic_camera_config(cfg)
+    return sensor_configs
 
 
 class Camera(BaseSensor):

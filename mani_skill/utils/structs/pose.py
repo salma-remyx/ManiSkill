@@ -97,9 +97,9 @@ class Pose:
     @classmethod
     def create_from_pq(
         cls,
-        p: Optional[Array] = None,
-        q: Optional[Array] = None,
-        device: Optional[Device] = None,
+        p: Array | None = None,
+        q: Array | None = None,
+        device: Device | None = None,
     ):
         """Creates a Pose object from a given position ``p`` and/or quaternion ``q``"""
         if device is None:
@@ -131,10 +131,19 @@ class Pose:
     @classmethod
     def create(
         cls,
-        pose: Array | "Pose",
-        device: Optional[Device] = None,
+        pose: Array | "Pose" | None = None,
+        device: Device | None = None,
     ) -> "Pose":
-        """Creates a Pose object from a given ``pose``, which can be a torch tensor, sapien.Pose, list of sapien.Pose, or Pose"""
+        """
+        Creates a Pose object from a given ``pose``.
+
+        Args:
+            pose: The pose to create a Pose object from. Can be a torch tensor,
+                sapien.Pose, list of sapien.Pose, or Pose. If None, returns identity.
+            device: The device to create the Pose on. If None, uses pose's device.
+        """
+        if pose is None:
+            return Pose.create_from_pq(device=device)
         if sapien is not None and isinstance(pose, sapien.Pose):
             raw_pose = torch.hstack(
                 [

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
-import sapien
 import torch
 from gymnasium import spaces
 
@@ -32,8 +31,8 @@ DictControllerConfig = dict[str, ControllerConfig]
 
 @dataclass
 class Keyframe:
-    pose: sapien.Pose
-    """sapien Pose object describe this keyframe's pose"""
+    pose: Pose
+    """Pose object describe this keyframe's pose"""
     qpos: Optional[Array] = None
     """the qpos of the robot at this keyframe"""
     qvel: Optional[Array] = None
@@ -51,7 +50,7 @@ class BaseAgent:
         control_mode (str | None): uid of controller to use
         fix_root_link (bool): whether to fix the robot root link
         agent_idx (str | None): an index for this agent in a multi-agent task setup If None, the task should be single-agent
-        initial_pose (sapien.Pose | Pose | None): the initial pose of the robot. Important to set for GPU simulation to ensure robot
+        initial_pose (Pose | None): the initial pose of the robot. Important to set for GPU simulation to ensure robot
         does not collide with other objects in the scene during GPU initialization which occurs before `env._initialize_episode` is called
     """
 
@@ -86,7 +85,7 @@ class BaseAgent:
         control_freq: int,
         control_mode: Optional[str] = None,
         agent_idx: Optional[int] = None,
-        initial_pose: Optional[Union[sapien.Pose, Pose]] = None,
+        initial_pose: Pose | None = None,
         build_separate: bool = False,
     ):
         self.scene = scene
@@ -147,9 +146,7 @@ class BaseAgent:
     def device(self):
         return self.scene.device
 
-    def _load_articulation(
-        self, initial_pose: Optional[Union[sapien.Pose, Pose]] = None
-    ):
+    def _load_articulation(self, initial_pose: Pose | None = None):
         """
         Loads the robot articulation
         """

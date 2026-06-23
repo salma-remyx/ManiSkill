@@ -5,7 +5,6 @@ import gymnasium as gym
 import numpy as np
 import tyro
 
-from mani_skill.envs.base_env import BaseEnv
 from mani_skill.utils import gym_utils
 from mani_skill.utils.wrappers import RecordEpisode
 
@@ -85,9 +84,9 @@ def main(args: Args):
         reward_mode=args.reward_mode,
         control_mode=args.control_mode,
         render_mode=args.render_mode,
-        sensor_configs=dict(shader_pack=args.shader),
-        human_render_camera_configs=dict(shader_pack=args.shader),
-        viewer_camera_configs=dict(shader_pack=args.shader),
+        sensor_configs=dict(sapien_kwargs=dict(shader_pack=args.shader)),
+        human_render_camera_configs=dict(sapien_kwargs=dict(shader_pack=args.shader)),
+        viewer_camera_configs=dict(sapien_kwargs=dict(shader_pack=args.shader)),
         num_envs=args.num_envs,
         sim_backend=args.sim_backend,
         render_backend=args.render_backend,
@@ -98,7 +97,7 @@ def main(args: Args):
         env_kwargs["robot_uids"] = tuple(args.robot_uids.split(","))
         if len(env_kwargs["robot_uids"]) == 1:
             env_kwargs["robot_uids"] = env_kwargs["robot_uids"][0]
-    env: BaseEnv = gym.make(args.env_id, **env_kwargs)
+    env = gym.make(args.env_id, **env_kwargs)
     record_dir = args.record_dir
     if record_dir:
         record_dir = record_dir.format(env_id=args.env_id)
@@ -122,8 +121,9 @@ def main(args: Args):
         env.action_space.seed(args.seed[0])
     if args.render_mode == "human":
         viewer = env.render()
-        if env.unwrapped.render_sim.id == "sapien":
+        if env.unwrapped.scene.render_sim.id == "sapien":
             import sapien
+
             if isinstance(viewer, sapien.utils.Viewer):
                 viewer.paused = args.pause
         env.render()

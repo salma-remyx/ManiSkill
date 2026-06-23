@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-import sapien
 import torch
 from gymnasium import spaces
 
@@ -24,7 +23,7 @@ class SceneBuilder:
 
     robot_init_qpos_noise: float = 0.02
     """Robot init qpos noise"""
-    robot_initial_pose: Union[sapien.Pose, Pose] = sapien.Pose()
+    robot_initial_pose: Pose = Pose.create()
     """Initial pose of the robot (passed to load_agent)"""
 
     builds_lighting: bool = False

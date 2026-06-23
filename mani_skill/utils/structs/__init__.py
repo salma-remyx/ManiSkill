@@ -11,7 +11,6 @@ from .link import Link as Link
 from .articulation_joint import ArticulationJoint as ArticulationJoint
 from .articulation import Articulation as Articulation
 
-from .render_camera import RenderCamera as RenderCamera
 from .types import (
     Array as Array,
     Device as Device,
