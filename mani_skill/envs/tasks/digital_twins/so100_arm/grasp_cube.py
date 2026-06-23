@@ -1,18 +1,16 @@
 from dataclasses import asdict, dataclass
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Sequence
 
 import dacite
 import numpy as np
-import sapien
 import torch
-from sapien.render import RenderBodyComponent
 from transforms3d.euler import euler2quat
 
 import mani_skill.envs.utils.randomization as randomization
 from mani_skill.agents.robots.so100.so_100 import SO100
 from mani_skill.envs.tasks.digital_twins.base_env import BaseDigitalTwinEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.logging_utils import logger
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -27,7 +25,7 @@ from mani_skill.utils.structs.types import SimConfig
 class SO100GraspCubeDomainRandomizationConfig:
     ### task agnostic domain randomizations, many of which you can copy over to your own tasks ###
     initial_qpos_noise_scale: float = 0.02
-    robot_color: Optional[Union[str, Sequence[float]]] = None
+    robot_color: str | Sequence[float] | None = None
     """Color of the robot in RGB format in scale of 0 to 1 mapping to 0 to 255.
     If you want to randomize it just set this value to "random". If left as None which is
     the default, it will set the robot parts to white and motors to black. For more fine-grained choices on robot colors you need to modify
@@ -78,9 +76,8 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
         robot_uids="so100",
         control_mode="pd_joint_target_delta_pos",
         greenscreen_overlay_path=None,
-        domain_randomization_config: Union[
-            SO100GraspCubeDomainRandomizationConfig, dict
-        ] = SO100GraspCubeDomainRandomizationConfig(),
+        domain_randomization_config: SO100GraspCubeDomainRandomizationConfig
+        | dict = SO100GraspCubeDomainRandomizationConfig(),
         domain_randomization=True,
         base_camera_settings=dict(
             fov=52 * np.pi / 180,
@@ -142,7 +139,7 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
         return [
             CameraConfig(
                 "base_camera",
-                pose=sapien.Pose(),
+                pose=Pose.create_from_pq(),
                 width=128,
                 height=128,
                 fov=camera_fov_noise + self.base_camera_settings["fov"],
@@ -155,7 +152,7 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
     @property
     def _default_human_render_camera_configs(self):
         # this camera and angle is simply used for visualization purposes, not policy observations
-        pose = sapien_utils.look_at([0.5, 0.3, 0.35], [0.3, 0.0, 0.1])
+        pose = camera_utils.look_at([0.5, 0.3, 0.35], [0.3, 0.0, 0.1])
         return CameraConfig(
             "render_camera", pose, 512, 512, 52 * np.pi / 180, 0.01, 100
         )
@@ -164,7 +161,7 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
         # load the robot arm at this initial pose
         super()._load_agent(
             options,
-            sapien.Pose(p=[0, 0, 0], q=euler2quat(0, 0, np.pi / 2)),
+            Pose.create_from_pq(p=[0, 0, 0], q=euler2quat(0, 0, np.pi / 2)),
             build_separate=True
             if self.domain_randomization
             and self.domain_randomization_config.robot_color == "random"
@@ -185,6 +182,10 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
         self.scene.render_sim.add_directional_light([0, 0, -1], [1, 1, 1])
 
     def _load_scene(self, options: dict):
+        import sapien
+        import sapien.physx as physx
+        import sapien.render
+
         # we use a predefined table scene builder which simply adds a table and floor to the scene
         # where the 0, 0, 0 position is the center of the table
         self.table_scene = TableSceneBuilder(self)
@@ -233,7 +234,7 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
             # using our randomized colors, frictions, and sizes
             builder = self.scene.create_actor_builder()
             friction = frictions[i]
-            material = sapien.pysapien.physx.PhysxMaterial(
+            material = physx.PhysxMaterial(
                 static_friction=friction,
                 dynamic_friction=friction,
                 restitution=0,

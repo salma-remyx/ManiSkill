@@ -9,7 +9,7 @@ from mani_skill.agents.robots.humanoid import Humanoid
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import rewards
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
@@ -44,7 +44,7 @@ class HumanoidEnvBase(BaseEnv):
         return [
             CameraConfig(
                 uid="side_cam",
-                pose=sapien_utils.look_at(eye=[0, -3, 1], target=[0, 0, 0]),
+                pose=camera_utils.look_at(eye=[0, -3, 1], target=[0, 0, 0]),
                 width=128,
                 height=128,
                 fov=60 * np.pi / 180,
@@ -59,7 +59,7 @@ class HumanoidEnvBase(BaseEnv):
         return [
             CameraConfig(
                 uid="training_side_vis",
-                pose=sapien_utils.look_at(eye=[0, -3, 1], target=[0, 0, 0]),
+                pose=camera_utils.look_at(eye=[0, -3, 1], target=[0, 0, 0]),
                 width=512,
                 height=512,
                 fov=60 * np.pi / 180,

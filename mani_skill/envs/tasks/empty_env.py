@@ -1,5 +1,4 @@
 import numpy as np
-import sapien
 import torch
 
 from mani_skill.envs.sapien_env import BaseEnv
@@ -7,6 +6,7 @@ from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import camera_utils
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.registration import register_env
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_env("Empty-v1", max_episode_steps=200000)
@@ -30,7 +30,7 @@ class EmptyEnv(BaseEnv):
         return CameraConfig("render_camera", pose, 2048, 2048, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose())
+        super()._load_agent(options, Pose.create_from_pq(p=[0, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.ground = build_ground(self.scene)

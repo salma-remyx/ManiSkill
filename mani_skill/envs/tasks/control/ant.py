@@ -1,8 +1,7 @@
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -11,7 +10,7 @@ from mani_skill.agents.controllers import *
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import rewards
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
@@ -32,7 +31,7 @@ class AntRobot(BaseAgent):
     keyframes = dict(
         stand=Keyframe(
             qpos=np.array([0, 0, 0, 0, 1, -1, -1, 1]),
-            pose=sapien.Pose(p=[0, 0, -0.175], q=euler2quat(0, 0, np.pi / 2)),
+            pose=Pose.create_from_pq(p=[0, 0, -0.175], q=euler2quat(0, 0, np.pi / 2)),
         )
     )
 
@@ -58,9 +57,7 @@ class AntRobot(BaseAgent):
             )
         )
 
-    def _load_articulation(
-        self, initial_pose: Optional[Union[sapien.Pose, Pose]] = None
-    ):
+    def _load_articulation(self, initial_pose: Pose | None = None):
         """
         Load the robot articulation
         """
@@ -77,7 +74,7 @@ class AntRobot(BaseAgent):
 
 
 class AntEnv(BaseEnv):
-    agent: Union[AntRobot]
+    agent: AntRobot
     SUPPORTED_REWARD_MODES = ("normalized_dense", "dense", "none")
 
     def __init__(self, *args, robot_uids=AntRobot, move_speed=0, **kwargs):
@@ -100,7 +97,7 @@ class AntEnv(BaseEnv):
         return [
             CameraConfig(
                 uid="side_cam",
-                pose=sapien_utils.look_at(eye=[0.5, -2, 1], target=[0, 0, 0]),
+                pose=camera_utils.look_at(eye=[0.5, -2, 1], target=[0, 0, 0]),
                 width=128,
                 height=128,
                 fov=60 * np.pi / 180,
@@ -115,7 +112,7 @@ class AntEnv(BaseEnv):
         return [
             CameraConfig(
                 uid="training_side_vis",
-                pose=sapien_utils.look_at(eye=[0.5, -2, 1], target=[0, 0, 0]),
+                pose=camera_utils.look_at(eye=[0.5, -2, 1], target=[0, 0, 0]),
                 width=512,
                 height=512,
                 fov=60 * np.pi / 180,

@@ -8,8 +8,6 @@ import os.path as osp
 from typing import TYPE_CHECKING
 
 import numpy as np
-import sapien
-import sapien.render
 
 if TYPE_CHECKING:
     from mani_skill.envs.scene import ManiSkillScene
@@ -43,7 +41,10 @@ def build_ground(
         ground.set_scene_idxs([0])
     actor = ground.build_static(name=name)
 
-    if scene.can_render():
+    if scene.can_render() and scene.render_sim.id == "sapien":
+        import sapien
+        import sapien.render
+
         # generate a grid of right triangles that form 1x1 meter squares centered at (0, 0, 0)
         floor_length = floor_width if floor_length is None else floor_length
         num_verts = (floor_width + 1) * (floor_length + 1)

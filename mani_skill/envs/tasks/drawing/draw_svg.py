@@ -1,5 +1,4 @@
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -7,7 +6,7 @@ import mani_skill.envs.utils.randomization as randomization
 from mani_skill.agents.robots.panda.panda_stick import PandaStick
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.geometry.rotation_conversions import quaternion_to_matrix
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table.scene_builder import TableSceneBuilder
@@ -78,7 +77,7 @@ class DrawSVGEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
         return [
             CameraConfig(
                 "base_camera",
@@ -93,7 +92,7 @@ class DrawSVGEnv(BaseEnv):
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
         return CameraConfig(
             "render_camera",
             pose=pose,
@@ -105,6 +104,9 @@ class DrawSVGEnv(BaseEnv):
         )
 
     def _load_scene(self, options: dict):
+        import sapien
+        import sapien.render
+
         try:
             import svgpathtools
             from svgpathtools import CubicBezier, Line, QuadraticBezier
@@ -194,7 +196,7 @@ class DrawSVGEnv(BaseEnv):
 
             builder = self.scene.create_actor_builder()
             for i, m in enumerate(midpoints):
-                pose = sapien.Pose(p=m, q=euler2quat(0, 0, angles[i]))
+                pose = Pose.create_from_pq(p=m, q=euler2quat(0, 0, angles[i]))
 
                 builder.add_box_visual(
                     pose=pose,
@@ -204,7 +206,7 @@ class DrawSVGEnv(BaseEnv):
                     ),
                 )
 
-            builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+            builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
             return builder.build_kinematic(name=name)
 
         # build a white canvas on the table
@@ -216,7 +218,9 @@ class DrawSVGEnv(BaseEnv):
         self.canvas.add_box_collision(
             half_size=[0.4, 0.6, self.CANVAS_THICKNESS / 2],
         )
-        self.canvas.initial_pose = sapien.Pose(p=[-0.1, 0, self.CANVAS_THICKNESS / 2])
+        self.canvas.initial_pose = Pose.create_from_pq(
+            p=[-0.1, 0, self.CANVAS_THICKNESS / 2]
+        )
         self.canvas = self.canvas.build_static(name="canvas")
 
         self.dots = []
@@ -234,10 +238,10 @@ class DrawSVGEnv(BaseEnv):
                         ),
                     )
                     builder.set_scene_idxs([env_idx])
-                    builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+                    builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
                     actor = builder.build_kinematic(name=f"dot_{i}_{env_idx}")
                     actors.append(actor)
-                self.dots.append(Actor.merge(actors))
+                self.dots.append(Actor.merge(actors, name=f"dot_{i}"))
             else:
                 builder = self.scene.create_actor_builder()
                 builder.add_cylinder_visual(
@@ -247,7 +251,7 @@ class DrawSVGEnv(BaseEnv):
                         base_color=self.BRUSH_COLORS[0]
                     ),
                 )
-                builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+                builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
                 actor = builder.build_kinematic(name=f"dot_{i}")
                 self.dots.append(actor)
         self.goal_outline = create_goal_outline(
@@ -294,7 +298,7 @@ class DrawSVGEnv(BaseEnv):
             for dot in self.dots:
                 # initially spawn dots in the table so they aren't seen
                 dot.set_pose(
-                    sapien.Pose(
+                    Pose.create_from_pq(
                         p=[0, 0, -self.DOT_THICKNESS], q=euler2quat(0, np.pi / 2, 0)
                     )
                 )

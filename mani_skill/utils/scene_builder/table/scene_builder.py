@@ -2,8 +2,6 @@ import os.path as osp
 from pathlib import Path
 
 import numpy as np
-import sapien
-import sapien.render
 import torch
 from transforms3d.euler import euler2quat
 
@@ -11,6 +9,7 @@ from mani_skill.agents.multi_agent import MultiAgent
 from mani_skill.agents.robots.fetch import FETCH_WHEELS_COLLISION_BIT
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.scene_builder import SceneBuilder
+from mani_skill.utils.structs import Pose
 
 
 class TableSceneBuilder(SceneBuilder):
@@ -23,20 +22,20 @@ class TableSceneBuilder(SceneBuilder):
         table_model_file = str(model_dir / "table.glb")
         scale = 1.75
 
-        table_pose = sapien.Pose(q=euler2quat(0, 0, np.pi / 2))
+        table_pose = Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2))
         # builder.add_nonconvex_collision_from_file(
         #     filename=table_model_file,
         #     scale=[scale] * 3,
         #     pose=table_pose,
         # )
         builder.add_box_collision(
-            pose=sapien.Pose(p=[0, 0, 0.9196429 / 2]),
+            pose=Pose.create_from_pq(p=[0, 0, 0.9196429 / 2]),
             half_size=(2.418 / 2, 1.209 / 2, 0.9196429 / 2),
         )
         builder.add_visual_from_file(
             filename=table_model_file, scale=[scale] * 3, pose=table_pose
         )
-        builder.initial_pose = sapien.Pose(
+        builder.initial_pose = Pose.create_from_pq(
             p=[-0.12, 0, -0.9196429], q=euler2quat(0, 0, np.pi / 2)
         )
         table = builder.build_kinematic(name="table-workspace")
@@ -62,13 +61,13 @@ class TableSceneBuilder(SceneBuilder):
             self.scene, floor_width=floor_width, altitude=-self.table_height
         )
         self.table = table
-        self.scene_objects: list[sapien.Entity] = [self.table, self.ground]
+        self.scene_objects = dict(table=self.table, ground=self.ground)
 
     def initialize(self, env_idx: torch.Tensor):
         # table_height = 0.9196429
         b = len(env_idx)
         self.table.set_pose(
-            sapien.Pose(p=[-0.12, 0, -0.9196429], q=euler2quat(0, 0, np.pi / 2))
+            Pose.create_from_pq(p=[-0.12, 0, -0.9196429], q=euler2quat(0, 0, np.pi / 2))
         )
         if self.env.robot_uids == "panda":
             qpos = np.array(
@@ -100,7 +99,7 @@ class TableSceneBuilder(SceneBuilder):
                 )
             qpos[:, -2:] = 0.04
             self.env.agent.reset(qpos)
-            self.env.agent.robot.set_pose(sapien.Pose([-0.615, 0, 0]))
+            self.env.agent.robot.set_pose(Pose.create_from_pq(p=[-0.615, 0, 0]))
         elif self.env.robot_uids == "panda_wristcam":
             # fmt: off
             qpos = np.array(
@@ -123,7 +122,7 @@ class TableSceneBuilder(SceneBuilder):
                 )
             qpos[:, -2:] = 0.04
             self.env.agent.reset(qpos)
-            self.env.agent.robot.set_pose(sapien.Pose([-0.615, 0, 0]))
+            self.env.agent.robot.set_pose(Pose.create_from_pq(p=[-0.615, 0, 0]))
         elif self.env.robot_uids in [
             "xarm6_allegro_left",
             "xarm6_allegro_right",
@@ -138,7 +137,7 @@ class TableSceneBuilder(SceneBuilder):
                 + qpos
             )
             self.env.agent.reset(qpos)
-            self.env.agent.robot.set_pose(sapien.Pose([-0.522, 0, 0]))
+            self.env.agent.robot.set_pose(Pose.create_from_pq(p=[-0.522, 0, 0]))
         elif self.env.robot_uids == "fetch":
             qpos = np.array(
                 [
@@ -160,7 +159,9 @@ class TableSceneBuilder(SceneBuilder):
                 ]
             )
             self.env.agent.reset(qpos)
-            self.env.agent.robot.set_pose(sapien.Pose([-1.05, 0, -self.table_height]))
+            self.env.agent.robot.set_pose(
+                Pose.create_from_pq(p=[-1.05, 0, -self.table_height])
+            )
 
             self.ground.set_collision_group_bit(
                 group=2, bit_idx=FETCH_WHEELS_COLLISION_BIT, bit=1
@@ -197,11 +198,11 @@ class TableSceneBuilder(SceneBuilder):
             qpos[:, -2:] = 0.04
             agent.agents[1].reset(qpos)
             agent.agents[1].robot.set_pose(
-                sapien.Pose([0, 0.75, 0], q=euler2quat(0, 0, -np.pi / 2))
+                Pose.create_from_pq(p=[0, 0.75, 0], q=euler2quat(0, 0, -np.pi / 2))
             )
             agent.agents[0].reset(qpos)
             agent.agents[0].robot.set_pose(
-                sapien.Pose([0, -0.75, 0], q=euler2quat(0, 0, np.pi / 2))
+                Pose.create_from_pq(p=[0, -0.75, 0], q=euler2quat(0, 0, np.pi / 2))
             )
         elif self.env.robot_uids == ("panda_wristcam", "panda_wristcam"):
             agent: MultiAgent = self.env.agent

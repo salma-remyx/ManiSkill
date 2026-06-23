@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -14,7 +13,7 @@ from mani_skill.agents.robots.unitree_g1.g1_upper_body import (
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building import ground
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
@@ -66,20 +65,20 @@ class TransportBoxEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at([1.0, 0.0, 1.6], [0, 0.0, 0.65])
+        pose = camera_utils.look_at([1.0, 0.0, 1.6], [0, 0.0, 0.65])
         return [
             CameraConfig("base_camera", pose=pose, width=128, height=128, fov=np.pi / 3)
         ]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([1.0, 0.0, 1.6], [0, 0.0, 0.65])
+        pose = camera_utils.look_at([1.0, 0.0, 1.6], [0, 0.0, 0.65])
         return CameraConfig(
             "render_camera", pose=pose, width=512, height=512, fov=np.pi / 3
         )
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[0, 0, 1]))
+        super()._load_agent(options, Pose.create_from_pq(p=[0, 0, 1]))
 
     def _load_scene(self, options: dict):
         self.ground = ground.build_ground(self.scene, mipmap_levels=7)
@@ -92,36 +91,36 @@ class TransportBoxEnv(BaseEnv):
         )
         table_model_file = str(model_dir / "table.glb")
         scale = 1.2
-        table_pose = sapien.Pose(q=euler2quat(0, 0, np.pi / 2))
+        table_pose = Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2))
         builder = self.scene.create_actor_builder()
         builder.add_visual_from_file(
             filename=table_model_file,
             scale=[scale] * 3,
-            pose=sapien.Pose(q=euler2quat(0, 0, np.pi / 2)),
+            pose=Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2)),
         )
         builder.add_box_collision(
-            pose=sapien.Pose(p=[0, 0, 0.630612274 / 2]),
+            pose=Pose.create_from_pq(p=[0, 0, 0.630612274 / 2]),
             half_size=(1.658057143 / 2, 0.829028571 / 2, 0.630612274 / 2),
         )
         builder.add_visual_from_file(
             filename=table_model_file, scale=[scale] * 3, pose=table_pose
         )
-        builder.initial_pose = sapien.Pose(p=[0, 0.66, 0])
+        builder.initial_pose = Pose.create_from_pq(p=[0, 0.66, 0])
         self.table_1 = builder.build_static(name="table-1")
         builder = self.scene.create_actor_builder()
         builder.add_visual_from_file(
             filename=table_model_file,
             scale=[scale] * 3,
-            pose=sapien.Pose(q=euler2quat(0, 0, np.pi / 2)),
+            pose=Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2)),
         )
         builder.add_box_collision(
-            pose=sapien.Pose(p=[0, 0, 0.630612274 / 2]),
+            pose=Pose.create_from_pq(p=[0, 0, 0.630612274 / 2]),
             half_size=(1.658057143 / 2, 0.829028571 / 2, 0.630612274 / 2),
         )
         builder.add_visual_from_file(
             filename=table_model_file, scale=[scale] * 3, pose=table_pose
         )
-        builder.initial_pose = sapien.Pose(p=[0, -0.66, 0])
+        builder.initial_pose = Pose.create_from_pq(p=[0, -0.66, 0])
         self.table_2 = builder.build_static(name="table-2")
 
         builder = self.scene.create_actor_builder()
@@ -132,9 +131,9 @@ class TransportBoxEnv(BaseEnv):
         builder.add_visual_from_file(
             filename=visual_file,
             scale=[0.12] * 3,
-            pose=sapien.Pose(q=euler2quat(0, 0, np.pi / 2)),
+            pose=Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2)),
         )
-        builder.initial_pose = sapien.Pose(p=[-0.1, -0.37, 0.7508])
+        builder.initial_pose = Pose.create_from_pq(p=[-0.1, -0.37, 0.7508])
         self.box = builder.build(name="box")
 
     def _initialize_episode(self, env_idx: torch.Tensor, options: dict):

@@ -1,7 +1,6 @@
 import math
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -9,7 +8,7 @@ import mani_skill.envs.utils.randomization as randomization
 from mani_skill.agents.robots.panda.panda_stick import PandaStick
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.geometry.rotation_conversions import quaternion_to_matrix
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table.scene_builder import TableSceneBuilder
@@ -73,7 +72,7 @@ class DrawTriangleEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
         return [
             CameraConfig(
                 "base_camera",
@@ -88,7 +87,7 @@ class DrawTriangleEnv(BaseEnv):
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.8], target=[0, 0, 0.1])
         return CameraConfig(
             "render_camera",
             pose=pose,
@@ -100,9 +99,11 @@ class DrawTriangleEnv(BaseEnv):
         )
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
+        import sapien
+        import sapien.render
 
         self.table_scene = TableSceneBuilder(self, robot_init_qpos_noise=0)
         self.table_scene.build()
@@ -138,7 +139,7 @@ class DrawTriangleEnv(BaseEnv):
             )
 
             builder = self.scene.create_actor_builder()
-            first_block_pose = sapien.Pose(
+            first_block_pose = Pose.create_from_pq(
                 list(c1), euler2quat(0, 0, theta - (np.pi / 2))
             )
             first_block_size = [box1_half_w, box1_half_h, half_thickness]
@@ -150,7 +151,7 @@ class DrawTriangleEnv(BaseEnv):
                 ),
             )
 
-            second_block_pose = sapien.Pose(
+            second_block_pose = Pose.create_from_pq(
                 list(c2), euler2quat(0, 0, theta - (5 * np.pi / 6))
             )
             second_block_size = [box1_half_w, box1_half_h, half_thickness]
@@ -163,7 +164,7 @@ class DrawTriangleEnv(BaseEnv):
                 ),
             )
 
-            third_block_pose = sapien.Pose(
+            third_block_pose = Pose.create_from_pq(
                 list(c3), euler2quat(0, 0, theta - (np.pi / 6))
             )
             third_block_size = [box1_half_w, box1_half_h, half_thickness]
@@ -175,7 +176,7 @@ class DrawTriangleEnv(BaseEnv):
                     base_color=base_color,
                 ),
             )
-            builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+            builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
             return builder.build_kinematic(name=name)
 
         # build a white canvas on the table
@@ -187,7 +188,9 @@ class DrawTriangleEnv(BaseEnv):
         self.canvas.add_box_collision(
             half_size=[0.4, 0.6, self.CANVAS_THICKNESS / 2],
         )
-        self.canvas.initial_pose = sapien.Pose(p=[-0.1, 0, self.CANVAS_THICKNESS / 2])
+        self.canvas.initial_pose = Pose.create_from_pq(
+            p=[-0.1, 0, self.CANVAS_THICKNESS / 2]
+        )
         self.canvas = self.canvas.build_static(name="canvas")
 
         self.dots = []
@@ -205,10 +208,10 @@ class DrawTriangleEnv(BaseEnv):
                         ),
                     )
                     builder.set_scene_idxs([env_idx])
-                    builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+                    builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
                     actor = builder.build_kinematic(name=f"dot_{i}_{env_idx}")
                     actors.append(actor)
-                self.dots.append(Actor.merge(actors))
+                self.dots.append(Actor.merge(actors, name=f"dot_{i}"))
             else:
                 builder = self.scene.create_actor_builder()
                 builder.add_cylinder_visual(
@@ -218,7 +221,7 @@ class DrawTriangleEnv(BaseEnv):
                         base_color=self.BRUSH_COLORS[0]
                     ),
                 )
-                builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+                builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
                 actor = builder.build_kinematic(name=f"dot_{i}")
                 self.dots.append(actor)
         self.goal_tri = create_goal_triangle(

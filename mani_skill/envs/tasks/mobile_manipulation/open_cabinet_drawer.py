@@ -1,7 +1,6 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
-import sapien
 import torch
 import trimesh
 
@@ -10,7 +9,7 @@ from mani_skill.agents.robots import Fetch
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.building import actors, articulations
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.geometry.geometry import transform_points
@@ -54,7 +53,7 @@ class OpenCabinetDrawerEnv(BaseEnv):
     _sample_video_link = "https://github.com/mani-skill/ManiSkill/raw/main/figures/environment_demos/OpenCabinetDrawer-v1_rt.mp4"
 
     SUPPORTED_ROBOTS = ["fetch"]
-    agent: Union[Fetch]
+    agent: Fetch
     handle_types = ["prismatic"]
     TRAIN_JSON = (
         PACKAGE_ASSET_DIR / "partnet_mobility/meta/info_cabinet_drawer_train.json"
@@ -104,15 +103,17 @@ class OpenCabinetDrawerEnv(BaseEnv):
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at(eye=[-1.8, -1.3, 1.8], target=[-0.3, 0.5, 0])
+        pose = camera_utils.look_at(eye=[-1.8, -1.3, 1.8], target=[-0.3, 0.5, 0])
         return CameraConfig(
             "render_camera", pose=pose, width=512, height=512, fov=1, near=0.01, far=100
         )
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[1, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[1, 0, 0]))
 
     def _load_scene(self, options: dict):
+        import sapien
+
         self.ground = build_ground(self.scene)
         # temporarily turn off the logging as there will be big red warnings
         # about the cabinets having oblong meshes which we ignore for now.
@@ -146,7 +147,9 @@ class OpenCabinetDrawerEnv(BaseEnv):
                 self.scene, f"partnet-mobility:{model_id}"
             )
             cabinet_builder.set_scene_idxs(scene_idxs=[i])
-            cabinet_builder.initial_pose = sapien.Pose(p=[0, 0, 0], q=[1, 0, 0, 0])
+            cabinet_builder.initial_pose = Pose.create_from_pq(
+                p=[0, 0, 0], q=[1, 0, 0, 0]
+            )
             cabinet = cabinet_builder.build(name=f"{model_id}-{i}")
             self.remove_from_state_dict_registry(cabinet)
             # disables self collisions by setting group 2 bit at CABINET_COLLISION_BIT for all;
@@ -204,7 +207,7 @@ class OpenCabinetDrawerEnv(BaseEnv):
             name="handle_link_goal",
             body_type="kinematic",
             add_collision=False,
-            initial_pose=sapien.Pose(p=[0, 0, 0], q=[1, 0, 0, 0]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, 0], q=[1, 0, 0, 0]),
         )
 
     def _after_reconfigure(self, options):
@@ -280,7 +283,7 @@ class OpenCabinetDrawerEnv(BaseEnv):
                 ori = (theta - torch.pi) + noise_ori
                 qpos[:, 2] = ori
                 self.agent.robot.set_qpos(qpos)
-                self.agent.robot.set_pose(sapien.Pose())
+                self.agent.robot.set_pose(Pose.create_from_pq())
             # close all the cabinets. We know beforehand that lower qlimit means "closed" for
             # these assets.
             qlimits = self.cabinet.get_qlimits()  # [b, self.cabinet.max_dof, 2])
