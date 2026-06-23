@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -115,8 +115,8 @@ class PegInsertionSideEnv(BaseEnv):
             self.table_scene = TableSceneBuilder(self)
             self.table_scene.build()
 
-            lengths = self._batched_episode_rng.uniform(0.085, 0.125)
-            radii = self._batched_episode_rng.uniform(0.015, 0.025)
+            lengths = cast(np.ndarray, self._batched_episode_rng.uniform(0.085, 0.125))
+            radii = cast(np.ndarray, self._batched_episode_rng.uniform(0.015, 0.025))
             centers = (
                 0.5
                 * (lengths - radii)[:, None]
