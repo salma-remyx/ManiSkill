@@ -1,17 +1,15 @@
 from typing import Any, Union
 
 import numpy as np
-import sapien
 import torch
-import torch.random
 from transforms3d.euler import euler2quat
 
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
-from mani_skill.utils.sapien_utils import look_at
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
 from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import Array
@@ -43,16 +41,16 @@ class PullCubeEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = look_at(eye=[-0.5, 0.0, 0.25], target=[0.2, 0.0, -0.5])
+        pose = camera_utils.look_at(eye=[-0.5, 0.0, 0.25], target=[0.2, 0.0, -0.5])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.table_scene = TableSceneBuilder(
@@ -67,7 +65,7 @@ class PullCubeEnv(BaseEnv):
             color=np.array([12, 42, 160, 255]) / 255,
             name="cube",
             body_type="dynamic",
-            initial_pose=sapien.Pose(p=[0, 0, self.cube_half_size]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, self.cube_half_size]),
         )
 
         # create target

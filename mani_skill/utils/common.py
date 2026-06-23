@@ -402,6 +402,11 @@ def to_numpy(array: Union[Array, dict], dtype=None) -> Union[np.ndarray, dict]:
     return array
 
 
-# -------------------------------------------------------------------------- #
-# Utilities for working with quaternions
-# -------------------------------------------------------------------------- #
+def hex2rgba(h, correction=True):
+    # https://stackoverflow.com/a/29643643
+    h = h.lstrip("#")
+    r, g, b = tuple(int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
+    rgba = np.array([r, g, b, 1])
+    if correction:  # reverse gamma correction in sapien
+        rgba = rgba**2.2
+    return rgba

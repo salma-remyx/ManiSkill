@@ -1,7 +1,6 @@
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
-import sapien
 import torch
 
 import mani_skill.envs.utils.randomization as randomization
@@ -9,7 +8,7 @@ from mani_skill.agents.robots import SO100, Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.tasks.tabletop.pick_cube_cfgs import PICK_CUBE_CONFIGS
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -40,7 +39,7 @@ class PickCubeEnv(BaseEnv):
         "so100",
         "widowxai",
     ]
-    agent: Union[Panda, Fetch, SO100]
+    agent: Panda | Fetch | SO100
     goal_thresh = 0.025
     cube_spawn_half_size = 0.05
     cube_spawn_center = (0, 0)
@@ -64,20 +63,20 @@ class PickCubeEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(
+        pose = camera_utils.look_at(
             eye=self.sensor_cam_eye_pos, target=self.sensor_cam_target_pos
         )
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at(
+        pose = camera_utils.look_at(
             eye=self.human_cam_eye_pos, target=self.human_cam_target_pos
         )
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.table_scene = TableSceneBuilder(
@@ -89,7 +88,7 @@ class PickCubeEnv(BaseEnv):
             half_size=self.cube_half_size,
             color=[1, 0, 0, 1],
             name="cube",
-            initial_pose=sapien.Pose(p=[0, 0, self.cube_half_size]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, self.cube_half_size]),
         )
         self.goal_site = actors.build_sphere(
             self.scene,
@@ -98,7 +97,7 @@ class PickCubeEnv(BaseEnv):
             name="goal_site",
             body_type="kinematic",
             add_collision=False,
-            initial_pose=sapien.Pose(),
+            initial_pose=Pose.create_from_pq(),
         )
         self._hidden_objects.append(self.goal_site)
 

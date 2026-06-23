@@ -1,7 +1,6 @@
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill import ASSET_DIR
@@ -11,7 +10,7 @@ from mani_skill.agents.robots.panda.panda_wristcam import PandaWristCam
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils.randomization.pose import random_quaternions
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.building import actors
 from mani_skill.utils.io_utils import load_json
 from mani_skill.utils.registration import register_env
@@ -48,7 +47,7 @@ class PickSingleYCBEnv(BaseEnv):
     _sample_video_link = "https://github.com/mani-skill/ManiSkill/raw/main/figures/environment_demos/PickSingleYCB-v1_rt.mp4"
 
     SUPPORTED_ROBOTS = ["panda", "panda_wristcam", "fetch"]
-    agent: Union[Panda, PandaWristCam, Fetch]
+    agent: Panda | PandaWristCam | Fetch
     goal_thresh = 0.025
 
     def __init__(
@@ -100,16 +99,16 @@ class PickSingleYCBEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         global WARNED_ONCE
@@ -142,7 +141,7 @@ class PickSingleYCBEnv(BaseEnv):
                 self.scene,
                 id=f"ycb:{model_id}",
             )
-            builder.initial_pose = sapien.Pose(p=[0, 0, 0])
+            builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0])
             builder.set_scene_idxs([i])
             self._objs.append(builder.build(name=f"{model_id}-{i}"))
             self.remove_from_state_dict_registry(self._objs[-1])
@@ -156,7 +155,7 @@ class PickSingleYCBEnv(BaseEnv):
             name="goal_site",
             body_type="kinematic",
             add_collision=False,
-            initial_pose=sapien.Pose(),
+            initial_pose=Pose.create_from_pq(),
         )
         self._hidden_objects.append(self.goal_site)
 

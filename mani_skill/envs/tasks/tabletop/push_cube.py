@@ -18,7 +18,6 @@ See comments for how to make your own environment and what each required functio
 from typing import Any, Union
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -99,7 +98,7 @@ class PushCubeEnv(BaseEnv):
 
     def _load_agent(self, options: dict):
         # set a reasonable initial pose for the agent that doesn't intersect other objects
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         # we use a prebuilt scene builder class that automatically loads in a floor and table.
@@ -117,7 +116,7 @@ class PushCubeEnv(BaseEnv):
             color=np.array([12, 42, 160, 255]) / 255,
             name="cube",
             body_type="dynamic",
-            initial_pose=sapien.Pose(p=[0, 0, self.cube_half_size]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, self.cube_half_size]),
         )
 
         # we also add in red/white target to visualize where we want the cube to be pushed to
@@ -130,7 +129,7 @@ class PushCubeEnv(BaseEnv):
             name="goal_region",
             add_collision=False,
             body_type="kinematic",
-            initial_pose=sapien.Pose(p=[0, 0, 1e-3]),
+            initial_pose=Pose.create_from_pq(p=[0, 0, 1e-3]),
         )
 
         # optionally you can automatically hide some Actors from view by appending to the self._hidden_objects list. When visual observations

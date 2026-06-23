@@ -1,7 +1,6 @@
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill.agents.robots.panda import PandaWristCam
@@ -9,7 +8,7 @@ from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.scene import ManiSkillScene
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
 from mani_skill.utils.structs import Actor, Pose
@@ -19,6 +18,9 @@ from mani_skill.utils.structs.types import SimConfig
 def _build_box_with_hole(
     scene: ManiSkillScene, inner_radius, outer_radius, depth, center=(0, 0)
 ):
+
+    import sapien.render
+
     builder = scene.create_actor_builder()
     thickness = (outer_radius - inner_radius) * 0.5
     # x-axis is hole direction
@@ -31,14 +33,14 @@ def _build_box_with_hole(
     ]
     offset = thickness + inner_radius
     poses = [
-        sapien.Pose([0, offset + half_center[0], 0]),
-        sapien.Pose([0, -offset + half_center[0], 0]),
-        sapien.Pose([0, 0, offset + half_center[1]]),
-        sapien.Pose([0, 0, -offset + half_center[1]]),
+        Pose.create_from_pq(p=[0, offset + half_center[0], 0]),
+        Pose.create_from_pq(p=[0, -offset + half_center[0], 0]),
+        Pose.create_from_pq(p=[0, 0, offset + half_center[1]]),
+        Pose.create_from_pq(p=[0, 0, -offset + half_center[1]]),
     ]
 
     mat = sapien.render.RenderMaterial(
-        base_color=sapien_utils.hex2rgba("#FFD289"), roughness=0.5, specular=0.5
+        base_color=common.hex2rgba("#FFD289"), roughness=0.5, specular=0.5
     )
 
     for half_size, pose in zip(half_sizes, poses):
@@ -65,7 +67,7 @@ class PegInsertionSideEnv(BaseEnv):
 
     _sample_video_link = "https://github.com/mani-skillll/ManiSkill/raw/main/figures/environment_demos/PegInsertionSide-v1_rt.mp4"
     SUPPORTED_ROBOTS = ["panda_wristcam"]
-    agent: Union[PandaWristCam]
+    agent: PandaWristCam
     _clearance = 0.003
 
     def __init__(
@@ -95,18 +97,20 @@ class PegInsertionSideEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at([0, -0.3, 0.2], [0, 0, 0.1])
+        pose = camera_utils.look_at([0, -0.3, 0.2], [0, 0, 0.1])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.5, -0.5, 0.8], [0.05, -0.1, 0.4])
+        pose = camera_utils.look_at([0.5, -0.5, 0.8], [0.05, -0.1, 0.4])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
+        import sapien.render
+
         with torch.device(self.device):
             self.table_scene = TableSceneBuilder(self)
             self.table_scene.build()
@@ -142,27 +146,27 @@ class PegInsertionSideEnv(BaseEnv):
                 builder.add_box_collision(half_size=[length, radius, radius])
                 # peg head
                 mat = sapien.render.RenderMaterial(
-                    base_color=sapien_utils.hex2rgba("#EC7357"),
+                    base_color=common.hex2rgba("#EC7357"),
                     roughness=0.5,
                     specular=0.5,
                 )
                 builder.add_box_visual(
-                    sapien.Pose([length / 2, 0, 0]),
+                    Pose.create_from_pq(p=[length / 2, 0, 0]),
                     half_size=[length / 2, radius, radius],
                     material=mat,
                 )
                 # peg tail
                 mat = sapien.render.RenderMaterial(
-                    base_color=sapien_utils.hex2rgba("#EDF6F9"),
+                    base_color=common.hex2rgba("#EDF6F9"),
                     roughness=0.5,
                     specular=0.5,
                 )
                 builder.add_box_visual(
-                    sapien.Pose([-length / 2, 0, 0]),
+                    Pose.create_from_pq(p=[-length / 2, 0, 0]),
                     half_size=[length / 2, radius, radius],
                     material=mat,
                 )
-                builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+                builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
                 builder.set_scene_idxs(scene_idxs)
                 peg = builder.build(f"peg_{i}")
                 self.remove_from_state_dict_registry(peg)
@@ -176,7 +180,7 @@ class PegInsertionSideEnv(BaseEnv):
                 builder = _build_box_with_hole(
                     self.scene, inner_radius, outer_radius, depth, center=centers[i]
                 )
-                builder.initial_pose = sapien.Pose(p=[0, 1, 0.1])
+                builder.initial_pose = Pose.create_from_pq(p=[0, 1, 0.1])
                 builder.set_scene_idxs(scene_idxs)
                 box = builder.build_kinematic(f"box_with_hole_{i}")
                 self.remove_from_state_dict_registry(box)
@@ -245,7 +249,7 @@ class PegInsertionSideEnv(BaseEnv):
             qpos = self._episode_rng.normal(0, 0.02, (b, len(qpos))) + qpos
             qpos[:, -2:] = 0.04
             self.agent.robot.set_qpos(qpos)
-            self.agent.robot.set_pose(sapien.Pose([-0.615, 0, 0]))
+            self.agent.robot.set_pose(Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     # save some commonly used attributes
     @property
@@ -303,7 +307,7 @@ class PegInsertionSideEnv(BaseEnv):
         # Stage 2: Encourage gripper to move close to peg tail and grasp it
         gripper_pos = self.agent.tcp.pose.p
         tgt_gripper_pose = self.peg.pose
-        offset = sapien.Pose(
+        offset = Pose.create_from_pq(
             [-0.06, 0, 0]
         )  # account for panda gripper width with a bit more leeway
         tgt_gripper_pose = tgt_gripper_pose * (offset)

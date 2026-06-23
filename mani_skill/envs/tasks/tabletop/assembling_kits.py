@@ -1,8 +1,6 @@
 from pathlib import Path
-from typing import Union
 
 import numpy as np
-import sapien.core as sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -11,7 +9,7 @@ from mani_skill.agents.robots import PandaWristCam
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import common, io_utils, sapien_utils
+from mani_skill.utils import camera_utils, common, io_utils
 from mani_skill.utils.geometry import rotation_conversions
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -40,7 +38,7 @@ class AssemblingKitsEnv(BaseEnv):
 
     SUPPORTED_REWARD_MODES = ["sparse", "none"]
     SUPPORTED_ROBOTS = ["panda_wristcam"]
-    agent: Union[PandaWristCam]
+    agent: PandaWristCam
 
     def __init__(
         self,
@@ -87,16 +85,16 @@ class AssemblingKitsEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at([0.2, 0, 0.4], [0, 0, 0])
+        pose = camera_utils.look_at([0.2, 0, 0.4], [0, 0, 0])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.3, 0.3, 0.8], [0.0, 0.0, 0.1])
+        pose = camera_utils.look_at([0.3, 0.3, 0.8], [0.0, 0.0, 0.1])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         with torch.device(self.device):
@@ -131,7 +129,7 @@ class AssemblingKitsEnv(BaseEnv):
                 ) = self._get_kit_builder_and_goals(episode["kit"])
                 kit = (
                     kit_builder.set_scene_idxs(scene_idxs)
-                    .set_initial_pose(sapien.Pose([0, 0, 0.01]))
+                    .set_initial_pose(Pose.create_from_pq(p=[0, 0, 0.01]))
                     .build_static(f"kit_{i}")
                 )
                 kits.append(kit)
@@ -141,7 +139,7 @@ class AssemblingKitsEnv(BaseEnv):
                         episode["obj_to_place"], color_id=pick_color_ids[i]
                     )
                     .set_scene_idxs(scene_idxs)
-                    .set_initial_pose(sapien.Pose(p=[0, 0, 0.1]))
+                    .set_initial_pose(Pose.create_from_pq(p=[0, 0, 0.1]))
                     .build(f"obj_{i}")
                 )
                 self.object_ids.append(episode["obj_to_place"])
@@ -154,7 +152,7 @@ class AssemblingKitsEnv(BaseEnv):
                     )
                     .set_scene_idxs(scene_idxs)
                     .set_initial_pose(
-                        sapien.Pose(
+                        Pose.create_from_pq(
                             object_goal_pos[obj_id],
                             q=euler2quat(0, 0, object_goal_rot[obj_id]),
                         )
@@ -184,6 +182,8 @@ class AssemblingKitsEnv(BaseEnv):
         return object_goal_pos, objects_goal_rot
 
     def _get_kit_builder_and_goals(self, kit_id: str):
+        import sapien.render
+
         object_goal_pos, objects_goal_rot = self._parse_json(
             self._kit_dir / f"{kit_id}.json"
         )

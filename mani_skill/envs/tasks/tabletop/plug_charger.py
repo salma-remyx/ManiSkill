@@ -1,7 +1,4 @@
-from typing import Union
-
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -9,7 +6,7 @@ from mani_skill.agents.robots import PandaWristCam
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.geometry import rotation_conversions
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -41,7 +38,7 @@ class PlugChargerEnv(BaseEnv):
     _receptacle_size = [1e-2, 5e-2, 5e-2]  # receptacle half size
 
     SUPPORTED_ROBOTS = ["panda_wristcam"]
-    agent: Union[PandaWristCam]
+    agent: PandaWristCam
     SUPPORTED_REWARD_MODES = ["none", "sparse"]
 
     def __init__(
@@ -56,14 +53,14 @@ class PlugChargerEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return [
             CameraConfig("base_camera", pose=pose, width=128, height=128, fov=np.pi / 2)
         ]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.3, 0.4, 0.1], [0, 0, 0])
+        pose = camera_utils.look_at([0.3, 0.4, 0.1], [0, 0, 0])
         return [
             CameraConfig(
                 "render_camera",
@@ -76,6 +73,8 @@ class PlugChargerEnv(BaseEnv):
         ]
 
     def _build_charger(self, peg_size, base_size, gap):
+        import sapien.render
+
         builder = self.scene.create_actor_builder()
 
         # peg
@@ -84,13 +83,13 @@ class PlugChargerEnv(BaseEnv):
         mat.metallic = 1.0
         mat.roughness = 0.0
         mat.specular = 1.0
-        builder.add_box_collision(sapien.Pose([peg_size[0], gap, 0]), peg_size)
+        builder.add_box_collision(Pose.create_from_pq([peg_size[0], gap, 0]), peg_size)
         builder.add_box_visual(
-            sapien.Pose([peg_size[0], gap, 0]), peg_size, material=mat
+            Pose.create_from_pq([peg_size[0], gap, 0]), peg_size, material=mat
         )
-        builder.add_box_collision(sapien.Pose([peg_size[0], -gap, 0]), peg_size)
+        builder.add_box_collision(Pose.create_from_pq([peg_size[0], -gap, 0]), peg_size)
         builder.add_box_visual(
-            sapien.Pose([peg_size[0], -gap, 0]), peg_size, material=mat
+            Pose.create_from_pq([peg_size[0], -gap, 0]), peg_size, material=mat
         )
 
         # base
@@ -98,14 +97,16 @@ class PlugChargerEnv(BaseEnv):
         mat.set_base_color([1, 1, 1, 1])
         mat.metallic = 0.0
         mat.roughness = 0.1
-        builder.add_box_collision(sapien.Pose([-base_size[0], 0, 0]), base_size)
+        builder.add_box_collision(Pose.create_from_pq([-base_size[0], 0, 0]), base_size)
         builder.add_box_visual(
-            sapien.Pose([-base_size[0], 0, 0]), base_size, material=mat
+            Pose.create_from_pq([-base_size[0], 0, 0]), base_size, material=mat
         )
-        builder.initial_pose = sapien.Pose(p=[0, 0, self._base_size[2]])
+        builder.initial_pose = Pose.create_from_pq(p=[0, 0, self._base_size[2]])
         return builder.build(name="charger")
 
     def _build_receptacle(self, peg_size, receptacle_size, gap):
+        import sapien.render
+
         builder = self.scene.create_actor_builder()
 
         sy = 0.5 * (receptacle_size[1] - peg_size[1] - gap)
@@ -120,10 +121,10 @@ class PlugChargerEnv(BaseEnv):
         mat.roughness = 0.1
 
         poses = [
-            sapien.Pose([dx, 0, dz]),
-            sapien.Pose([dx, 0, -dz]),
-            sapien.Pose([dx, dy, 0]),
-            sapien.Pose([dx, -dy, 0]),
+            Pose.create_from_pq([dx, 0, dz]),
+            Pose.create_from_pq([dx, 0, -dz]),
+            Pose.create_from_pq([dx, dy, 0]),
+            Pose.create_from_pq([dx, -dy, 0]),
         ]
         half_sizes = [
             [receptacle_size[0], receptacle_size[1], sz],
@@ -136,27 +137,27 @@ class PlugChargerEnv(BaseEnv):
             builder.add_box_visual(pose, half_size, material=mat)
 
         # Fill the gap
-        pose = sapien.Pose([-receptacle_size[0], 0, 0])
+        pose = Pose.create_from_pq([-receptacle_size[0], 0, 0])
         half_size = [receptacle_size[0], gap - peg_size[1], peg_size[2]]
         builder.add_box_collision(pose, half_size)
         builder.add_box_visual(pose, half_size, material=mat)
 
         # Add dummy visual for hole
         mat = sapien.render.RenderMaterial()
-        mat.set_base_color(sapien_utils.hex2rgba("#DBB539"))
+        mat.set_base_color(common.hex2rgba("#DBB539"))
         mat.metallic = 1.0
         mat.roughness = 0.0
         mat.specular = 1.0
-        pose = sapien.Pose([-receptacle_size[0], -(gap * 0.5 + peg_size[1]), 0])
+        pose = Pose.create_from_pq([-receptacle_size[0], -(gap * 0.5 + peg_size[1]), 0])
         half_size = [receptacle_size[0], peg_size[1], peg_size[2]]
         builder.add_box_visual(pose, half_size, material=mat)
-        pose = sapien.Pose([-receptacle_size[0], gap * 0.5 + peg_size[1], 0])
+        pose = Pose.create_from_pq([-receptacle_size[0], gap * 0.5 + peg_size[1], 0])
         builder.add_box_visual(pose, half_size, material=mat)
-        builder.initial_pose = sapien.Pose(p=[0, 0, 0.1])
+        builder.initial_pose = Pose.create_from_pq(p=[0, 0, 0.1])
         return builder.build_kinematic(name="receptacle")
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.scene_builder = TableSceneBuilder(
@@ -209,7 +210,7 @@ class PlugChargerEnv(BaseEnv):
                 )
                 qpos[:, -2:] = 0.04
                 self.agent.robot.set_qpos(qpos)
-                self.agent.robot.set_pose(sapien.Pose([-0.615, 0, 0]))
+                self.agent.robot.set_pose(Pose.create_from_pq(p=[-0.615, 0, 0]))
 
             # Initialize charger
             xy = randomization.uniform(
@@ -237,12 +238,12 @@ class PlugChargerEnv(BaseEnv):
             self.receptacle.set_pose(Pose.create_from_pq(pos, ori))
 
             self.goal_pose = self.receptacle.pose * (
-                sapien.Pose(q=euler2quat(0, 0, np.pi))
+                Pose.create_from_pq(q=euler2quat(0, 0, np.pi))
             )
 
     @property
     def charger_base_pose(self):
-        return self.charger.pose * (sapien.Pose([-self._base_size[0], 0, 0]))
+        return self.charger.pose * (Pose.create_from_pq(p=[-self._base_size[0], 0, 0]))
 
     def _compute_distance(self):
         obj_pose = self.charger.pose

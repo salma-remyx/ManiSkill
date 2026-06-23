@@ -257,16 +257,6 @@ def look_at(eye, target, up=(0, 0, 1), device=None) -> Pose:
     return camera_utils.look_at(eye, target, up, device)
 
 
-def hex2rgba(h, correction=True):
-    # https://stackoverflow.com/a/29643643
-    h = h.lstrip("#")
-    r, g, b = tuple(int(h[i : i + 2], 16) / 255 for i in (0, 2, 4))
-    rgba = np.array([r, g, b, 1])
-    if correction:  # reverse gamma correction in sapien
-        rgba = rgba**2.2
-    return rgba
-
-
 def set_render_material(material: sapien.render.RenderMaterial, **kwargs):
     for k, v in kwargs.items():
         if k == "color":

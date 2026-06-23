@@ -1,17 +1,15 @@
 import os
-from typing import Union
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill import ASSET_DIR
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
-from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
-from mani_skill.utils.building import actors
 from mani_skill.sim.builders.actor import BaseActorBuilder
+from mani_skill.sim.sensors.camera import CameraConfig
+from mani_skill.utils import camera_utils
+from mani_skill.utils.building import actors
 from mani_skill.utils.io_utils import load_json
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -25,7 +23,7 @@ class PickClutterEnv(BaseEnv):
 
     SUPPORTED_REWARD_MODES = ["none"]
     SUPPORTED_ROBOTS = ["panda", "fetch"]
-    agent: Union[Panda, Fetch]
+    agent: Panda | Fetch
 
     DEFAULT_EPISODE_JSON: str
     DEFAULT_ASSET_ROOT: str
@@ -38,7 +36,7 @@ class PickClutterEnv(BaseEnv):
         robot_init_qpos_noise=0.02,
         num_envs=1,
         reconfiguration_freq=None,
-        episode_json: str = None,
+        episode_json: str | None = None,
         **kwargs,
     ):
         self.robot_init_qpos_noise = robot_init_qpos_noise
@@ -75,7 +73,7 @@ class PickClutterEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return [
             CameraConfig(
                 "base_camera",
@@ -90,7 +88,7 @@ class PickClutterEnv(BaseEnv):
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
         return CameraConfig(
             "render_camera", pose=pose, width=512, height=512, fov=1, near=0.01, far=100
         )
@@ -99,7 +97,7 @@ class PickClutterEnv(BaseEnv):
         raise NotImplementedError()
 
     def _load_agent(self, options: dict):
-        super()._load_agent(options, sapien.Pose(p=[-0.615, 0, 0]))
+        super()._load_agent(options, Pose.create_from_pq(p=[-0.615, 0, 0]))
 
     def _load_scene(self, options: dict):
         self.scene_builder = TableSceneBuilder(
@@ -120,7 +118,9 @@ class PickClutterEnv(BaseEnv):
             for actor_config in episode["actors"]:
                 builder = self._load_model(actor_config["model_id"])
                 init_pose = actor_config["pose"]
-                builder.initial_pose = sapien.Pose(p=init_pose[:3], q=init_pose[3:])
+                builder.initial_pose = Pose.create_from_pq(
+                    p=init_pose[:3], q=init_pose[3:]
+                )
                 builder.set_scene_idxs([i])
                 obj = builder.build(name=f"set_{i}_{actor_config['model_id']}")
                 all_objects.append(obj)
@@ -138,7 +138,7 @@ class PickClutterEnv(BaseEnv):
             name="goal_site",
             body_type="kinematic",
             add_collision=False,
-            initial_pose=sapien.Pose(),
+            initial_pose=Pose.create_from_pq(),
         )
         self._hidden_objects.append(self.goal_site)
 

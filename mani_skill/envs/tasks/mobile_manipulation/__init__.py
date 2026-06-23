@@ -1,2 +1,2 @@
-from .open_cabinet_drawer import OpenCabinetDoorEnv, OpenCabinetDrawerEnv
-from .robocasa import *
+from .open_cabinet_drawer import OpenCabinetDoorEnv as OpenCabinetDoorEnv
+from .open_cabinet_drawer import OpenCabinetDrawerEnv as OpenCabinetDrawerEnv
