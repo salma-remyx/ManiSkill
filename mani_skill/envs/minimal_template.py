@@ -7,7 +7,7 @@ import torch
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils  # pyright: ignore[reportUnusedImport]
+from mani_skill.utils import camera_utils
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.types import SimConfig
 
@@ -27,14 +27,14 @@ class CustomEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
+        pose = camera_utils.look_at(eye=[0.3, 0, 0.6], target=[-0.1, 0, 0.1])
         return [
             CameraConfig("base_camera", pose=pose, width=128, height=128, fov=np.pi / 2)
         ]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
+        pose = camera_utils.look_at([0.6, 0.7, 0.6], [0.0, 0.0, 0.35])
         return CameraConfig("render_camera", pose=pose, width=512, height=512, fov=1)
 
     def _load_agent(self, options: dict):

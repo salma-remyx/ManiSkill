@@ -1,6 +1,6 @@
 import torch
 
-from mani_skill.utils import common, sapien_utils
+from mani_skill.utils import camera_utils, common
 from mani_skill.utils.geometry.rotation_conversions import (
     axis_angle_to_quaternion,
     euler_angles_to_matrix,
@@ -43,7 +43,7 @@ def noised_look_at(
     target = common.to_tensor(target, device=device)
     targets = target.view(1, 3).repeat(len(eye), 1)
     noised_targets = torch.normal(mean=targets, std=look_at_noise)
-    poses = sapien_utils.look_at(eye=eye, target=noised_targets, device=device)
+    poses = camera_utils.look_at(eye=eye, target=noised_targets, device=device)
 
     # axis to rotate around is the look at dirsection
     angles = torch.normal(

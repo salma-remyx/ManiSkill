@@ -4,7 +4,7 @@ import torch
 
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.registration import register_env
 
@@ -21,12 +21,12 @@ class EmptyEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at([1.25, -1.25, 1.5], [0.0, 0.0, 0.2])
+        pose = camera_utils.look_at([1.25, -1.25, 1.5], [0.0, 0.0, 0.2])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at([1.25, -1.25, 1.5], [0.0, 0.0, 0.2])
+        pose = camera_utils.look_at([1.25, -1.25, 1.5], [0.0, 0.0, 0.2])
         return CameraConfig("render_camera", pose, 2048, 2048, 1, 0.01, 100)
 
     def _load_agent(self, options: dict):

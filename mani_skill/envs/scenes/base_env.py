@@ -6,7 +6,7 @@ import torch
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder import SceneBuilder
 from mani_skill.utils.scene_builder.registration import REGISTERED_SCENE_BUILDERS
@@ -152,13 +152,13 @@ class SceneManipulationEnv(BaseEnv):
         if self.robot_uids == "fetch":
             return []
 
-        pose = sapien_utils.look_at([0.3, 0, 0.6], [-0.1, 0, 0.1])
+        pose = camera_utils.look_at([0.3, 0, 0.6], [-0.1, 0, 0.1])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
         if self.robot_uids == "fetch":
-            room_camera_pose = sapien_utils.look_at([2.5, -2.5, 3], [0.0, 0.0, 0])
+            room_camera_pose = camera_utils.look_at([2.5, -2.5, 3], [0.0, 0.0, 0])
             room_camera_config = CameraConfig(
                 "render_camera",
                 room_camera_pose,
@@ -168,7 +168,7 @@ class SceneManipulationEnv(BaseEnv):
                 0.01,
                 100,
             )
-            robot_camera_pose = sapien_utils.look_at([2, 0, 1], [0, 0, -1])
+            robot_camera_pose = camera_utils.look_at([2, 0, 1], [0, 0, -1])
             robot_camera_config = CameraConfig(
                 "robot_render_camera",
                 robot_camera_pose,
@@ -182,7 +182,7 @@ class SceneManipulationEnv(BaseEnv):
             return [room_camera_config, robot_camera_config]
 
         if self.robot_uids == "panda":
-            pose = sapien_utils.look_at([0.4, 0.4, 0.8], [0.0, 0.0, 0.4])
+            pose = camera_utils.look_at([0.4, 0.4, 0.8], [0.0, 0.0, 0.4])
         else:
-            pose = sapien_utils.look_at([0, 10, -3], [0, 0, 0])
+            pose = camera_utils.look_at([0, 10, -3], [0, 0, 0])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)

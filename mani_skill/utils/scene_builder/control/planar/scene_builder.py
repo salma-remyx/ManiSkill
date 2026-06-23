@@ -1,7 +1,4 @@
 import numpy as np
-import sapien
-import sapien.render
-import torch
 from transforms3d.euler import euler2quat
 
 from mani_skill.utils.building.ground import build_ground
@@ -9,7 +6,10 @@ from mani_skill.utils.scene_builder import SceneBuilder
 
 
 class PlanarSceneBuilder(SceneBuilder):
-    def build(self, build_config_idxs: list[int] = None):
+    def build(self, build_config_idxs: list[int] | None = None):
+        import sapien
+        import sapien.render
+
         # ground - a strip with length along +x
         self.ground = build_ground(
             self.scene,

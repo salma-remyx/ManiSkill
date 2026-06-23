@@ -14,6 +14,8 @@ A guide for migrating code from ManiSkill 3 to ManiSkill 4, in addition to (stro
 
 - There is no `px` field anymore in `self.scene`, a ManiSkillScene object. Calls to `self.scene.px.gpu_update_articulation_kinematics()` should change to `self.scene.physics_sim._gpu_update_articulation_kinematics()`
 
+- The function `sapien_utils.look_at` has been moved to `camera_utils.look_at`. The module `camera_utils` can be imported via `from mani_skill.utils import camera_utils`. You can still use `sapien_utils.look_at` but it will be deprecated.
+
 ## Strong recommendations
 
 - `SimConfig`, `DefaultMaterialsConfig` configs moved from `mani_skill/utils/structs/types.py` to `mani_skill/sim/base_sim.py`. They are now also frozen dataclasses meaning once created, you generally can't edit it (and shouldn't) unless you know what you are doing.

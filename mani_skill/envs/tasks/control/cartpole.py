@@ -1,19 +1,21 @@
 """Adapted from https://github.com/google-deepmind/dm_control/blob/main/dm_control/suite/cartpole.py"""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
 from mani_skill.agents.base_agent import BaseAgent
-from mani_skill.agents.controllers import *
+from mani_skill.agents.controllers import (
+    PassiveControllerConfig,
+    PDJointPosControllerConfig,
+)
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization, rewards
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import (
@@ -49,9 +51,7 @@ class CartPoleRobot(BaseAgent):
             )
         )
 
-    def _load_articulation(
-        self, initial_pose: Optional[Union[sapien.Pose, Pose]] = None
-    ):
+    def _load_articulation(self, initial_pose: Pose | None = None):
         """
         Load the robot articulation
         """
@@ -101,19 +101,21 @@ class CartpoleEnv(BaseEnv):
 
     @property
     def _default_sensor_configs(self):
-        pose = sapien_utils.look_at(eye=[0, -4, 1], target=[0, 0, 1])
+        pose = camera_utils.look_at(eye=[0, -4, 1], target=[0, 0, 1])
         return [CameraConfig("base_camera", pose, 128, 128, np.pi / 2, 0.01, 100)]
 
     @property
     def _default_human_render_camera_configs(self):
-        pose = sapien_utils.look_at(eye=[0, -4, 1], target=[0, 0, 1])
+        pose = camera_utils.look_at(eye=[0, -4, 1], target=[0, 0, 1])
         return CameraConfig("render_camera", pose, 512, 512, 1, 0.01, 100)
 
     def _load_scene(self, options: dict):
+        import sapien.render
+
         loader = self.scene.create_mjcf_loader()
         actor_builders = loader.parse(MJCF_FILE)["actor_builders"]
         for a in actor_builders:
-            a.initial_pose = sapien.Pose()
+            a.initial_pose = Pose.create()
             a.build(a.name)
 
         # background visual wall
@@ -124,7 +126,9 @@ class CartpoleEnv(BaseEnv):
                 base_color=np.array([0.3, 0.3, 0.3, 1])
             ),
         )
-        self.wall.initial_pose = sapien.Pose(p=[0, 1, 1], q=euler2quat(0, 0, np.pi / 2))
+        self.wall.initial_pose = Pose.create_from_pq(
+            p=[0, 1, 1], q=euler2quat(0, 0, np.pi / 2)
+        )
         self.wall.build_static(name="wall")
 
     def evaluate(self):

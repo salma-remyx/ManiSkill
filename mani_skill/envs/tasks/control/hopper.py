@@ -1,18 +1,20 @@
 """Adapted from https://github.com/google-deepmind/dm_control/blob/main/dm_control/suite/hopper.py"""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any, Union
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill.agents.base_agent import BaseAgent
-from mani_skill.agents.controllers import *
+from mani_skill.agents.controllers import (
+    PassiveControllerConfig,
+    PDJointPosControllerConfig,
+)
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import rewards
 from mani_skill.sim.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.utils import camera_utils
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.control.planar.scene_builder import (
     PlanarSceneBuilder,
@@ -74,9 +76,7 @@ class HopperRobot(BaseAgent):
             )
         )
 
-    def _load_articulation(
-        self, initial_pose: Optional[Union[sapien.Pose, Pose]] = None
-    ):
+    def _load_articulation(self, initial_pose: Pose | None = None):
         """
         Load the robot articulation
         """
@@ -127,7 +127,7 @@ class HopperEnv(BaseEnv):
             # replicated from xml file
             CameraConfig(
                 uid="cam0",
-                pose=sapien_utils.look_at(eye=[0, -2.8, 0.8], target=[0, 0, 0]),
+                pose=camera_utils.look_at(eye=[0, -2.8, 0.8], target=[0, 0, 0]),
                 width=128,
                 height=128,
                 fov=np.pi / 4,
@@ -143,7 +143,7 @@ class HopperEnv(BaseEnv):
             # replicated from xml file
             CameraConfig(
                 uid="render_cam",
-                pose=sapien_utils.look_at(eye=[0, -2.8, 0.8], target=[0, 0, 0]),
+                pose=camera_utils.look_at(eye=[0, -2.8, 0.8], target=[0, 0, 0]),
                 width=512,
                 height=512,
                 fov=np.pi / 4,
