@@ -26,7 +26,8 @@ class NewtonSim(BaseSim):
     """The warp device that the rendering is running on."""
     _model: newton.Model
     """The Newton model of the scene."""
-
+    _sim_time: float = 0.0
+    """The simulation time elapsed."""
     _state_0: newton.State
     """The state of the scene at the current time step."""
     _state_1: newton.State
@@ -36,7 +37,7 @@ class NewtonSim(BaseSim):
     _contacts: newton.Contacts
     """The contacts buffer"""
 
-    _physics_step_graph: wp.Graph
+    _physics_step_graph: wp.Graph | None = None
     """The CUDA graph of the physics step."""
 
     def __init__(
@@ -126,20 +127,22 @@ class NewtonSim(BaseSim):
         self._state_1 = self._model.state()
         self._control = self._model.control()
         self._contacts = self._model.contacts()
-        self._solver = newton.solvers.SolverMuJoCo(
+        self._solver = newton.solvers.SolverXPBD(
             self._model,
+            iterations=10,
         )
 
         if self.sim_warp_device.is_cuda:
             with wp.ScopedCapture() as capture:
                 self.physics_step()
-            self._physics_step_graph = capture.graph  # type: ignore
+            self._physics_step_graph = capture.graph
 
     def physics_step(self):
-        if self.sim_warp_device.is_cuda:
+        if self._physics_step_graph is not None:
             wp.capture_launch(self._physics_step_graph)
         else:
             self._physics_step()
+        self._sim_time += self.timestep
 
     def _physics_step(self):
         self._state_0.clear_forces()
@@ -147,7 +150,20 @@ class NewtonSim(BaseSim):
         self._model.collide(self._state_0, self._contacts)
 
         self._solver.step(
-            state_in=self._state_0, state_out=self._state_1, control=self._control
+            state_in=self._state_0,
+            state_out=self._state_1,
+            control=self._control,
+            contacts=self._contacts,
+            dt=self.timestep,
         )
 
         self._state_0, self._state_1 = self._state_1, self._state_0
+
+    def _gpu_apply_all(self):
+        pass
+
+    def _gpu_fetch_all(self):
+        pass
+
+    def _gpu_update_articulation_kinematics(self):
+        pass

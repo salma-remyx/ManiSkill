@@ -42,8 +42,10 @@ sapien = [
     "sapien>=3.0.3",
 ]
 newton = [
+    "imgui-bundle>=1.92.0",
     "mujoco-warp>=3.10.0",
     "newton>=1.3.0",
+    "pyglet>=2.0",
 ]
 
 [dependency-groups]

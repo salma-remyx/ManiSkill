@@ -1219,8 +1219,14 @@ class BaseEnv(gym.Env):
     def _close_viewer(self):
         if self._viewer is None:
             return
-        self._viewer.close()
-        self._viewer = None
+        if self.backend.render_backend_package == "sapien":
+            self._viewer.close()
+            self._viewer = None
+        elif self.backend.render_backend_package == "newton":
+            # TODO (stao): https://github.com/newton-physics/newton/issues/3225
+            # determine whether we can re-open the ViewerGL viewer and/or
+            # swap the viewer model
+            pass
 
     @cached_property
     def segmentation_id_map(self):
@@ -1228,11 +1234,16 @@ class BaseEnv(gym.Env):
         Returns a dictionary mapping every ID to the appropriate Actor or Link object
         """
         res = dict()
-        for actor in self.scene.actors.values():
-            res[actor._objs[0].per_scene_id] = actor
-        for art in self.scene.articulations.values():
-            for link in art.links:
-                res[link._objs[0].entity.per_scene_id] = link
+        if self.backend.sim_backend_package == "sapien":
+            for actor in self.scene.actors.values():
+                res[actor._objs[0].per_scene_id] = actor
+            for art in self.scene.articulations.values():
+                for link in art.links:
+                    res[link._objs[0].entity.per_scene_id] = link
+        elif self.backend.sim_backend_package == "newton":
+            pass # TODO (stao): implement segmentation ID map for newton
+        else:
+            raise NotImplementedError(f"Segmentation ID map not supported for the simulation backend: {self.backend.sim_backend}")
         return res
 
     def add_to_state_dict_registry(self, object: Union[Actor, Articulation]):
@@ -1331,18 +1342,34 @@ class BaseEnv(gym.Env):
             control_window.show_camera_linesets = False
             if "render_camera" in self._human_render_cameras:
                 self._viewer.set_camera_pose(cast(SapienCamera, self._human_render_cameras["render_camera"]).camera.global_pose[0].sp)
+        elif self.backend.render_backend_package == "newton":
+            import newton
+
+            from mani_skill.sim.newton.sim import NewtonSim
+
+            viewer = newton.viewer.ViewerGL()
+            render_sim = cast(NewtonSim, self.scene.render_sim)
+            viewer.set_model(render_sim._model)
+            self._viewer = viewer
         else:
             raise NotImplementedError(f"Viewer creation not supported for the renderer backend: {self.backend.render_backend_package}")
+
     def render_human(self):
         """render the environment by opening a GUI viewer. This also returns the viewer object. Any objects registered in the _hidden_objects list will be shown"""
         for obj in self._hidden_objects:
             obj.show_visual()
         if self._viewer is None:
             self._setup_viewer()
-        if self.gpu_sim_enabled and self.scene._gpu_sim_initialized:
-            # TODO (stao): this is sapien specific code...
-            self.scene.render_sim.px.sync_poses_gpu_to_cpu()  # pyright: ignore[reportAttributeAccessIssue]
-        self._viewer.render() # type: ignore
+
+        if self.backend.render_backend_package == "sapien":
+            if self.gpu_sim_enabled and self.scene._gpu_sim_initialized:
+                # TODO (stao): this is sapien specific code...
+                self.scene.render_sim.px.sync_poses_gpu_to_cpu()  # pyright: ignore[reportAttributeAccessIssue]
+            self._viewer.render() # type: ignore
+        elif self.backend.render_backend_package == "newton":
+            self._viewer.begin_frame(self.scene.render_sim._sim_time)
+            self._viewer.log_state(self.scene.render_sim._state_0)
+            self._viewer.end_frame()
         for obj in self._hidden_objects:
             obj.hide_visual()
         return self._viewer

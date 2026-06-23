@@ -4,6 +4,7 @@ import torch
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import camera_utils
+from mani_skill.utils.building.actors.common import build_cube
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
@@ -34,6 +35,14 @@ class EmptyEnv(BaseEnv):
 
     def _load_scene(self, options: dict):
         self.ground = build_ground(self.scene)
+        self.cube = build_cube(
+            self.scene,
+            half_size=0.05,
+            color=[1, 0, 0, 1],
+            name="cube",
+            body_type="kinematic",
+            initial_pose=Pose.create_from_pq(p=[0, 0, 0.2]),
+        )
         # self.ground.set_collision_group_bit(group=2, bit_idx=30, bit=1)
 
     def _initialize_episode(self, env_idx: torch.Tensor, options: dict):
