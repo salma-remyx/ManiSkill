@@ -1167,6 +1167,14 @@ class BaseEnv(gym.Env):
                 # TODO (stao): figure out how to insert custom configs depending on sim backend
                 cfg=self.sim_config,
             )
+        elif self.backend.sim_backend_package == "newton":
+            from mani_skill.sim.newton import NewtonSim
+            sim_object = NewtonSim(
+                num_envs=self.num_envs,
+                sim_backend=self.backend.sim_backend,
+                render_backend=self.backend.render_backend,
+                cfg=self.sim_config,
+            )
         else:
             raise NotImplementedError(f"Simulation backend package {self.backend.sim_backend_package} not implemented")
         self.device = sim_object.sim_device_torch
