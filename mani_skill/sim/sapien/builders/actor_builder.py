@@ -69,6 +69,38 @@ class SapienActorBuilder(OriginalSAPIENActorBuilder, BaseActorBuilder):
         self._allow_overlapping_plane_collisions = v
         return self
 
+    def __getattribute__(self, name):
+        attr = super().__getattribute__(name)
+        # ManiSkill allows None poses as arguments whereas SAPIEN does not.
+        # This wrapper around the add_<x> functions removes the pose argument if it is None.
+        if callable(attr) and name.startswith("add_"):
+
+            def wrapper(*args, **kwargs):
+                from inspect import Parameter, signature
+
+                sig = signature(attr)
+                if "pose" in sig.parameters:
+                    param = sig.parameters["pose"]
+                    # Only touch if 'pose' is present and it is in kwargs or positional (in args by index)
+                    if param.kind in (
+                        Parameter.POSITIONAL_OR_KEYWORD,
+                        Parameter.KEYWORD_ONLY,
+                    ):
+                        # Remove pose if it is None in kwargs
+                        if "pose" in kwargs and kwargs["pose"] is None:
+                            kwargs = {k: v for k, v in kwargs.items() if k != "pose"}
+                        else:
+                            # Check if pose is provided as a positional argument
+                            arg_names = list(sig.parameters.keys())
+                            idx = arg_names.index("pose")
+                            if len(args) > idx and args[idx] is None:
+                                # Remove the pose argument from args
+                                args = tuple(a for i, a in enumerate(args) if i != idx)
+                return attr(*args, **kwargs)
+
+            return wrapper
+        return attr
+
     def build_physx_component(self, link_parent=None):
         for r in self.collision_records:
             assert isinstance(r.material, physx.PhysxMaterial)

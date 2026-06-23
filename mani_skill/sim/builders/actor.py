@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-import sapien
-
 from mani_skill.sim.builders.base_builder import BaseBuilder
 from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.pose import Pose
@@ -186,7 +184,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_plane_collision."
                 )
             self.__sim_builders[sim.id].add_plane_collision(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 material=material,
                 patch_radius=patch_radius,
                 min_patch_radius=min_patch_radius,
@@ -207,7 +205,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_plane_visual."
                 )
             self.__sim_builders[sim.id].add_plane_visual(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 scale=scale,
                 material=material,
                 name=name,
@@ -231,7 +229,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_capsule_collision."
                 )
             self.__sim_builders[sim.id].add_capsule_collision(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 radius=radius,
                 half_length=half_length,
                 material=material,
@@ -256,7 +254,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_capsule_visual."
                 )
             self.__sim_builders[sim.id].add_capsule_visual(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 radius=radius,
                 half_length=half_length,
                 material=material,
@@ -281,7 +279,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_cylinder_collision."
                 )
             self.__sim_builders[sim.id].add_cylinder_collision(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 radius=radius,
                 half_length=half_length,
                 material=material,
@@ -306,7 +304,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_cylinder_visual."
                 )
             self.__sim_builders[sim.id].add_cylinder_visual(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 radius=radius,
                 half_length=half_length,
                 material=material,
@@ -343,7 +341,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_box_collision."
                 )
             self.__sim_builders[sim.id].add_box_collision(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 half_size=half_size,
                 material=material,
                 density=density,
@@ -379,7 +377,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_box_visual."
                 )
             self.__sim_builders[sim.id].add_box_visual(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 half_size=half_size,
                 material=material,
                 name=name,
@@ -414,7 +412,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_sphere_collision."
                 )
             self.__sim_builders[sim.id].add_sphere_collision(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 radius=radius,
                 material=material,
                 density=density,
@@ -449,7 +447,7 @@ class BaseActorBuilder(BaseBuilder):
                     "add_sphere_visual."
                 )
             self.__sim_builders[sim.id].add_sphere_visual(
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 radius=radius,
                 material=material,
                 name=name,
@@ -488,7 +486,7 @@ class BaseActorBuilder(BaseBuilder):
                 )
             self.__sim_builders[sim.id].add_convex_collision_from_file(
                 filename=filename,
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 scale=scale,
                 material=material,
                 density=density,
@@ -531,7 +529,7 @@ class BaseActorBuilder(BaseBuilder):
                 )
             self.__sim_builders[sim.id].add_multiple_convex_collisions_from_file(
                 filename=filename,
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 scale=scale,
                 material=material,
                 density=density,
@@ -571,7 +569,7 @@ class BaseActorBuilder(BaseBuilder):
                 )
             self.__sim_builders[sim.id].add_nonconvex_collision_from_file(
                 filename=filename,
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 scale=scale,
                 material=material,
                 density=density,
@@ -607,7 +605,7 @@ class BaseActorBuilder(BaseBuilder):
                 )
             self.__sim_builders[sim.id].add_visual_from_file(
                 filename=filename,
-                pose=pose if pose is not None else sapien.Pose(),
+                pose=pose,
                 scale=scale,
                 material=material,
                 name=name,
