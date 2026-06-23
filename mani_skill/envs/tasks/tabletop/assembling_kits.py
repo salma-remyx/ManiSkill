@@ -114,8 +114,8 @@ class AssemblingKitsEnv(BaseEnv):
             objs_to_place = []
             all_other_objs = []
             self.object_ids = []
-            self.goal_pos = np.zeros((self.num_envs, 3))
-            self.goal_rot = np.zeros((self.num_envs,))
+            goal_pos = np.zeros((self.num_envs, 3))
+            goal_rot = np.zeros((self.num_envs,))
 
             for i, eps_idx in enumerate(eps_idxs):
                 scene_idxs = [i]
@@ -163,12 +163,12 @@ class AssemblingKitsEnv(BaseEnv):
                 all_other_objs.append(other_objs)
 
                 # save the goal position and z-axis rotation of the object to place
-                self.goal_pos[i] = object_goal_pos[episode["obj_to_place"]]
-                self.goal_rot[i] = object_goal_rot[episode["obj_to_place"]]
+                goal_pos[i] = object_goal_pos[episode["obj_to_place"]]
+                goal_rot[i] = object_goal_rot[episode["obj_to_place"]]
             self.obj = Actor.merge(objs_to_place, name="obj")
             self.object_ids = torch.tensor(self.object_ids, dtype=torch.int32)
-            self.goal_pos = common.to_tensor(self.goal_pos)
-            self.goal_rot = common.to_tensor(self.goal_rot)
+            self.goal_pos = common.to_tensor(goal_pos)
+            self.goal_rot = common.to_tensor(goal_rot)
 
     def _parse_json(self, path):
         """Parse kit JSON information and return the goal positions and rotations"""
