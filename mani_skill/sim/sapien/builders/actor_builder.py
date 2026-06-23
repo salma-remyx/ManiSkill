@@ -96,6 +96,20 @@ class SapienActorBuilder(OriginalSAPIENActorBuilder, BaseActorBuilder):
                             if len(args) > idx and args[idx] is None:
                                 # Remove the pose argument from args
                                 args = tuple(a for i, a in enumerate(args) if i != idx)
+                # if pose is not None, set argument to pose.sp
+                if "pose" in kwargs and kwargs["pose"] is not None:
+                    kwargs["pose"] = kwargs["pose"].sp
+                else:
+                    # Check if pose is provided as a positional argument
+                    arg_names = list(sig.parameters.keys())
+                    if "pose" in arg_names:
+                        idx = arg_names.index("pose")
+                        if len(args) > idx and args[idx] is not None:
+                            args = tuple(
+                                a.sp if i == idx and hasattr(a, "sp") else a
+                                for i, a in enumerate(args)
+                            )
+
                 return attr(*args, **kwargs)
 
             return wrapper

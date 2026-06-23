@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from mani_skill.utils.structs.base import BaseStruct
+from mani_skill.utils.structs.pose import Pose
 
 
 @dataclass
@@ -18,3 +19,22 @@ class Link(BaseStruct):
         """
         link_cls: "Link" = links[0].__class__  # type: ignore
         return link_cls.merge(links, name)
+
+    @property
+    def pose(self) -> Pose:
+        """
+        Get the pose of the actor.
+        """
+        raise NotImplementedError()
+
+    @pose.setter
+    def pose(self, pose: Pose):
+        """
+        Set the pose of the actor.
+        """
+
+    def set_pose(self, pose: Pose):
+        """
+        Set the pose of the actor.
+        """
+        self.pose = pose

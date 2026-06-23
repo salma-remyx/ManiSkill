@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from mani_skill.utils.structs.pose import Pose
+
 if TYPE_CHECKING:
     from mani_skill.envs.scene import ManiSkillScene
 
@@ -33,9 +35,9 @@ def build_ground(
     ground = scene.create_actor_builder()
     if add_collision:
         ground.add_plane_collision(
-            sapien.Pose(p=[0, 0, altitude], q=[0.7071068, 0, -0.7071068, 0]),
+            Pose.create_from_pq(p=[0, 0, altitude], q=[0.7071068, 0, -0.7071068, 0]),
         )
-    ground.initial_pose = sapien.Pose(p=[0, 0, 0], q=[1, 0, 0, 0])
+    ground.initial_pose = Pose.create_from_pq(p=[0, 0, 0], q=[1, 0, 0, 0])
     if scene.parallel_in_single_scene:
         # when building a ground and using a parallel render in the GUI, we want to only build one ground visual+collision plane
         ground.set_scene_idxs([0])

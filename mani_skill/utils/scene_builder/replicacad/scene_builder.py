@@ -9,7 +9,6 @@ import os.path as osp
 from collections import defaultdict
 from functools import cached_property
 from pathlib import Path
-from typing import Tuple, Union
 
 import numpy as np
 import torch
@@ -60,7 +59,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
         self._navigable_positions = [None] * len(self.build_configs)
         self.build_config_idxs: list[int] = None
 
-    def build(self, build_config_idxs: Union[int, list[int]]):
+    def build(self, build_config_idxs: int | list[int]):
         # build_config_idxs is a list of integers, where the ith value is the scene idx for the ith parallel env
         if isinstance(build_config_idxs, int):
             build_config_idxs = [build_config_idxs] * self.env.num_envs
@@ -75,7 +74,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
         self.scene_objects: dict[str, Actor] = dict()
         self.movable_objects: dict[str, Actor] = dict()
         self.articulations: dict[str, Articulation] = dict()
-        self._default_object_poses: list[Tuple[Actor, sapien.Pose]] = []
+        self._default_object_poses: list[tuple[Actor, Pose]] = []
 
         # keep track of background objects separately as we need to disable mobile robot collisions
         # note that we will create a merged actor using these objects to represent the bg
@@ -297,7 +296,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
     def initialize(self, env_idx: torch.Tensor):
 
         # teleport robot away for init
-        self.env.agent.robot.set_pose(sapien.Pose([-10, 0, -100]))
+        self.env.agent.robot.set_pose(Pose.create_from_pq(p=[-10, 0, -100]))
 
         for obj, pose in self._default_object_poses:
             obj.set_pose(pose)
@@ -315,7 +314,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
         # teleport robot back to correct location
         if self.env.robot_uids == "fetch":
             self.env.agent.reset(self.env.agent.keyframes["rest"].qpos)
-            self.env.agent.robot.set_pose(sapien.Pose([-1, 0, 0.02]))
+            self.env.agent.robot.set_pose(Pose.create_from_pq(p=[-1, 0, 0.02]))
         else:
             raise NotImplementedError(self.env.robot_uids)
 

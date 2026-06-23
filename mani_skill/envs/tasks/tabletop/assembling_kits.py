@@ -203,6 +203,8 @@ class AssemblingKitsEnv(BaseEnv):
     def _get_object_builder(
         self, object_id: str, static: bool = False, color_id: int = 0
     ):
+        import sapien.render
+
         collision_path = self._models_dir / "collision" / f"{object_id:02d}.obj"
         visual_path = self._models_dir / "visual" / f"{object_id:02d}.obj"
 
