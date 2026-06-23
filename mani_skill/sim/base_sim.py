@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import torch
@@ -111,7 +112,7 @@ class BaseSim(ABC):
         self._gpu_sim_initialized = False
 
     ### Shared derived properties ###
-    @property
+    @cached_property
     def timestep(self) -> float:
         """The timestep of the simulation."""
         return 1.0 / self.cfg.sim_freq

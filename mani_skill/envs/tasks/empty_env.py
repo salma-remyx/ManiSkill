@@ -34,7 +34,7 @@ class EmptyEnv(BaseEnv):
 
     def _load_scene(self, options: dict):
         self.ground = build_ground(self.scene)
-        self.ground.set_collision_group_bit(group=2, bit_idx=30, bit=1)
+        # self.ground.set_collision_group_bit(group=2, bit_idx=30, bit=1)
 
     def _initialize_episode(self, env_idx: torch.Tensor, options: dict):
         pass

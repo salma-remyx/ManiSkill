@@ -42,8 +42,8 @@ sapien = [
     "sapien>=3.0.3",
 ]
 newton = [
-    "mujoco-warp>=3.9.0.1",
-    "newton>=1.2.1",
+    "mujoco-warp>=3.10.0",
+    "newton>=1.3.0",
 ]
 
 [dependency-groups]
