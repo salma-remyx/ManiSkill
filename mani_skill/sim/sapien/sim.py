@@ -18,7 +18,7 @@ from mani_skill.envs.utils.system.backend import parse_backend_device_id
 # try and determine which render system is used by the installed sapien package
 from mani_skill.render import SAPIEN_RENDER_SYSTEM
 from mani_skill.sim.base_sim import BaseSim, BaseSimConfig
-from mani_skill.sim.sapien.sensors.camera import SapienCamera
+from mani_skill.sim.sapien.sensors.camera import SapienCamera, SapienCameraConfig
 from mani_skill.sim.sapien.structs.actor import SapienActor
 from mani_skill.sim.sapien.structs.articulation import SapienArticulation
 from mani_skill.sim.sapien.structs.link import SapienLink
@@ -507,6 +507,14 @@ class SapienSim(BaseSim):
         pass
 
     def add_camera(
+        self,
+        camera_config: SapienCameraConfig,
+        articulation: SapienArticulation | None = None,
+    ) -> SapienCamera:
+        return SapienCamera(camera_config, self, articulation=articulation)
+
+    # TODO (stao): extra call hierarchy and naming due to legacy code, should clean up
+    def _add_camera(
         self,
         name: str,
         pose: Pose,

@@ -174,8 +174,6 @@ class BaseEnv(gym.Env):
 
     _sample_video_link: Optional[str] = None
     """a link to a sample video of the task. This is mostly used for automatic documentation generation"""
-    _camera_cls: type[Camera] = Camera
-    """the class to use for creating cameras. Changed at runtime depending on render_backend"""
 
     def __init__(
         self,
@@ -751,38 +749,40 @@ class BaseEnv(gym.Env):
         self._sensor_configs = dict()
 
         # Add task/external sensors
-        self._sensor_configs.update(
-            parse_sensor_configs(self._default_sensor_configs, render_backend_package=self.backend.render_backend_package))
+        self._sensor_configs.update(parse_sensor_configs(self._default_sensor_configs))
 
         # Add agent sensors
         self._agent_sensor_configs = dict()
         if self.agent is not None:
-            self._agent_sensor_configs = parse_sensor_configs(self.agent._sensor_configs, render_backend_package=self.backend.render_backend_package)
+            self._agent_sensor_configs = parse_sensor_configs(self.agent._sensor_configs)
             self._sensor_configs.update(self._agent_sensor_configs)
 
         # Add human render camera configs
         self._human_render_camera_configs = parse_sensor_configs(
-            self._default_human_render_camera_configs, render_backend_package=self.backend.render_backend_package
+            self._default_human_render_camera_configs
         )
 
         _viewer_camera_config_dict = parse_sensor_configs(
-            self._default_viewer_camera_configs, render_backend_package=self.backend.render_backend_package
+            self._default_viewer_camera_configs
         )
 
         # Override camera configurations with user supplied configurations
+        # and transform generic camera configs to render backend specific camera configs
         if self._custom_sensor_configs is not None:
             update_sensor_configs_from_dict(
-                self._sensor_configs, self._custom_sensor_configs
+                self._sensor_configs,
+                self._custom_sensor_configs,
+                self.backend.render_backend_package
             )
         if self._custom_human_render_camera_configs is not None:
             update_sensor_configs_from_dict(
                 self._human_render_camera_configs,
-                self._custom_human_render_camera_configs,
+                self._custom_human_render_camera_configs, self.backend.render_backend_package
             )
         if self._custom_viewer_camera_configs is not None:
             update_sensor_configs_from_dict(
                 _viewer_camera_config_dict,
-                self._custom_viewer_camera_configs,
+                self._custom_viewer_camera_configs, self.backend.render_backend_package
             )
         self._viewer_camera_config = _viewer_camera_config_dict["viewer"]
 
@@ -799,9 +799,8 @@ class BaseEnv(gym.Env):
             else:
                 articulation = None
             if isinstance(sensor_config, CameraConfig):
-                self._sensors[uid] = self._camera_cls(
+                self._sensors[uid] = self.scene.render_sim.add_camera(
                     sensor_config,
-                    self.scene.render_sim,
                     articulation=articulation,
                 )
             else:
@@ -811,9 +810,9 @@ class BaseEnv(gym.Env):
         # Cameras for rendering only
         self._human_render_cameras = dict()
         for uid, camera_config in self._human_render_camera_configs.items():
-            self._human_render_cameras[uid] = self._camera_cls(
+            self._human_render_cameras[uid] = self.scene.render_sim.add_camera(
                 camera_config,
-                self.scene.render_sim,
+                articulation=None,
             )
 
         self.scene.sensors = self._sensors
@@ -1182,9 +1181,6 @@ class BaseEnv(gym.Env):
         )
 
         # determine sim specific classes
-        if self.scene.render_sim.id == "sapien":
-            from mani_skill.sim.sapien.sensors.camera import SapienCamera
-            self._camera_cls = SapienCamera
         if not self.scene.can_render():
             if self.render_mode is not None:
                 logger.warning(

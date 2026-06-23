@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Sequence, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Sequence, TypedDict, TypeVar
 
 import torch
 
-from mani_skill.sim.base_sim import BaseSim
 from mani_skill.sim.sensors.base_sensor import BaseSensor, BaseSensorConfig
 from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.articulation import Articulation
 from mani_skill.utils.structs.link import Link
 from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import Array
+
+if TYPE_CHECKING:
+    from mani_skill.sim.base_sim import BaseSim
 
 
 class CameraParams(TypedDict):
@@ -61,7 +63,9 @@ T = TypeVar("T", bound=BaseSensorConfig)
 
 
 def update_sensor_configs_from_dict(
-    sensor_configs: dict[str, T], config_dict: dict[str, dict]
+    sensor_configs: dict[str, T],
+    config_dict: dict[str, dict],
+    render_backend_package: str,
 ):
     # First, apply global configuration
     for k, v in config_dict.items():
@@ -74,8 +78,6 @@ def update_sensor_configs_from_dict(
                         f"{k} is not a valid attribute of CameraConfig"
                     )
                 else:
-                    if k == "shader_pack":
-                        config.shader_config = None
                     setattr(config, k, v)
     # Then, apply camera-specific configuration
     for name, v in config_dict.items():
@@ -85,8 +87,6 @@ def update_sensor_configs_from_dict(
         config = sensor_configs[name]
         if isinstance(config, CameraConfig):
             for kk in v:
-                if kk == "shader_pack":
-                    config.shader_config = None
                 assert hasattr(config, kk), (
                     f"{kk} is not a valid attribute of CameraConfig"
                 )
@@ -97,14 +97,17 @@ def update_sensor_configs_from_dict(
 
                 v["pose"] = sapien.Pose(v["pose"][:3], v["pose"][3:])
             config.__dict__.update(v)
-    for config in sensor_configs.values():
-        if isinstance(config, CameraConfig):
-            config.__post_init__()
+    for k in sensor_configs.keys():
+        cfg = sensor_configs[k]
+        if isinstance(cfg, CameraConfig):
+            if render_backend_package == "sapien":
+                from mani_skill.sim.sapien.sensors.camera import SapienCameraConfig
+
+                sensor_configs[k] = SapienCameraConfig.from_generic_camera_config(cfg)
 
 
 def parse_sensor_configs(
     sensor_configs: Sequence[T] | dict[str, T] | T,
-    render_backend_package: str,
 ) -> dict[str, T]:
     """
     Given sensor configs defined in any form, parse them into a dictionary of CameraConfig objects.
@@ -119,21 +122,13 @@ def parse_sensor_configs(
         A dictionary of CameraConfig objects.
     """
     if isinstance(sensor_configs, (tuple, list)):
-        sensor_configs = dict([(config.uid, config) for config in sensor_configs])
+        return dict([(config.uid, config) for config in sensor_configs])
     elif isinstance(sensor_configs, dict):
-        sensor_configs = dict(sensor_configs)
+        return dict(sensor_configs)
     elif isinstance(sensor_configs, BaseSensorConfig):
-        sensor_configs = dict([(sensor_configs.uid, sensor_configs)])
+        return dict([(sensor_configs.uid, sensor_configs)])
     else:
         raise TypeError(type(sensor_configs))
-    for k in sensor_configs.keys():
-        cfg = sensor_configs[k]
-        if isinstance(cfg, CameraConfig):
-            if render_backend_package == "sapien":
-                from mani_skill.sim.sapien.sensors.camera import SapienCameraConfig
-
-                sensor_configs[k] = SapienCameraConfig.from_generic_camera_config(cfg)
-    return sensor_configs
 
 
 class Camera(BaseSensor):

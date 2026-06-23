@@ -9,12 +9,10 @@ import torch
 from mani_skill.sim.builders.actor import BaseActorBuilder
 from mani_skill.sim.builders.articulation import BaseArticulationBuilder
 from mani_skill.sim.loaders.urdf import BaseURDFLoader
+from mani_skill.sim.sensors.camera import Camera, CameraConfig
 from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.articulation import Articulation
 from mani_skill.utils.structs.link import Link
-from mani_skill.utils.structs.pose import Pose
-from mani_skill.utils.structs.render_camera import RenderCamera
-from mani_skill.utils.structs.types import Array
 
 if TYPE_CHECKING:
     from mani_skill.envs.scene import ManiSkillScene
@@ -153,18 +151,18 @@ class BaseSim(ABC):
     ### Code for working with cameras and sensors ###
     def add_camera(
         self,
-        name: str,
-        pose: Pose,
-        width: int,
-        height: int,
-        near: float,
-        far: float,
-        fovy: float | list[float],
-        intrinsic: Array | None = None,
-        mount: Actor | Link | None = None,
-    ) -> RenderCamera:
+        camera_config: CameraConfig,
+        articulation: Articulation | None = None,
+    ) -> Camera:
         """
         Adds a camera to the simulation scene.
+
+        Args:
+            camera_config: The configuration for the camera.
+            articulation: The articulation to look for links to mount the camera on.
+
+        Returns:
+            The camera object.
         """
         raise NotImplementedError()
 

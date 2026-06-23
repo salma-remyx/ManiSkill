@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import sapien
-import sapien.render
 import torch
 
 from mani_skill.envs.utils.system.backend import BackendInfo
@@ -14,8 +13,7 @@ from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.articulation import Articulation
 from mani_skill.utils.structs.link import Link
 from mani_skill.utils.structs.pose import Pose
-from mani_skill.utils.structs.render_camera import RenderCamera
-from mani_skill.utils.structs.types import Array, Device, SimConfig
+from mani_skill.utils.structs.types import Device, SimConfig
 
 if TYPE_CHECKING:
     from mani_skill.sim.base_sim import BaseSim
@@ -184,32 +182,6 @@ class ManiSkillScene:
         else:
             self.physics_sim.remove_articulation(articulation)
             self.render_sim.remove_articulation(articulation)
-
-    def add_camera(
-        self,
-        name,
-        pose,
-        width,
-        height,
-        near,
-        far,
-        fovy: float | list[float] | None = None,
-        intrinsic: Array | None = None,
-        mount: Actor | Link | None = None,
-    ) -> RenderCamera:
-        """Adds a (mounted) camera to the scene"""
-        return self.render_sim.add_camera(
-            name, pose, width, height, near, far, fovy, intrinsic, mount
-        )
-
-    # def remove_camera(self, camera):
-    #     self.remove_entity(camera.entity)
-
-    # def get_cameras(self):
-    #     return self.render_system.cameras
-
-    # def get_mounted_cameras(self):
-    #     return self.get_cameras()
 
     def step(self):
         self.physics_sim.physics_step()

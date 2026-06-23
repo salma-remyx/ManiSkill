@@ -47,7 +47,10 @@ class SapienCameraConfig(CameraConfig):
 
     def __post_init__(self):
         self.pose = Pose.create(self.pose)
-        if self.shader_config is None:
+        if (
+            self.shader_config is None
+            or self.shader_pack != self.shader_config.shader_pack
+        ):
             self.shader_config = PREBUILT_SHADER_CONFIGS[self.shader_pack]
         else:
             self.shader_pack = self.shader_config.shader_pack
@@ -88,7 +91,7 @@ class SapienCamera(Camera):
         # Add camera to scene. Add mounted one if a entity is given
         set_shader_pack(self._shader_config)
         if self.entity is None:
-            self.camera = sim.add_camera(
+            self.camera = sim._add_camera(
                 name=camera_config.uid,
                 pose=camera_config.pose,
                 width=camera_config.width,
@@ -99,7 +102,7 @@ class SapienCamera(Camera):
                 far=camera_config.far,
             )
         else:
-            self.camera = sim.add_camera(
+            self.camera = sim._add_camera(
                 name=camera_config.uid,
                 mount=self.entity,
                 pose=camera_config.pose,
