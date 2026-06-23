@@ -25,8 +25,8 @@ from transforms3d.euler import euler2quat
 
 from mani_skill.agents.robots import Fetch, Panda
 from mani_skill.envs.sapien_env import BaseEnv
-from mani_skill.sensors.camera import CameraConfig
-from mani_skill.utils import common, sapien_utils
+from mani_skill.sim.sensors.camera import CameraConfig
+from mani_skill.utils import sapien_utils
 from mani_skill.utils.building import actors
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -138,7 +138,7 @@ class PushCubeEnv(BaseEnv):
         # are generated or env.render_sensors() is called or env.render() is called with render_mode="sensors", the actor will not show up.
         # This is useful if you intend to add some visual goal sites as e.g. done in PickCube that aren't actually part of the task
         # and are there just for generating evaluation videos.
-        # self._hidden_objects.append(self.goal_region)
+        self._hidden_objects.append(self.goal_region)
 
     def _initialize_episode(self, env_idx: torch.Tensor, options: dict):
         # use the torch.device context manager to automatically create tensors on CPU or CUDA depending on self.device, the device the environment runs on

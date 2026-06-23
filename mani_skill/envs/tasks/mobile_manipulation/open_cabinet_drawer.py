@@ -2,7 +2,6 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import sapien
-import sapien.physx as physx
 import torch
 import trimesh
 
@@ -10,7 +9,7 @@ from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill.agents.robots import Fetch
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
-from mani_skill.sensors.camera import CameraConfig
+from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import common, sapien_utils
 from mani_skill.utils.building import actors, articulations
 from mani_skill.utils.building.ground import build_ground
@@ -23,8 +22,6 @@ from mani_skill.utils.structs.types import GPUMemoryConfig, SimConfig
 CABINET_COLLISION_BIT = 29
 
 
-# TODO (stao): we need to cut the meshes of all the cabinets in this dataset for gpu sim, there may be some wierd physics
-# that may happen although it seems okay for state based RL
 @register_env(
     "OpenCabinetDrawer-v1",
     asset_download_ids=["partnet_mobility_cabinet"],
@@ -33,19 +30,25 @@ CABINET_COLLISION_BIT = 29
 class OpenCabinetDrawerEnv(BaseEnv):
     """
     **Task Description:**
-    Use the Fetch mobile manipulation robot to move towards a target cabinet and open the target drawer out.
+    Use the Fetch mobile manipulation robot to move towards a target cabinet and open the
+    target drawer out.
 
     **Randomizations:**
-    - Robot is randomly initialized 1.6 to 1.8 meters away from the cabinet and positioned to face it
+    - Robot is randomly initialized 1.6 to 1.8 meters away from the cabinet and positioned
+      to face it
     - Robot's base orientation is randomized by -9 to 9 degrees
-    - The cabinet selected to manipulate is randomly sampled from all PartnetMobility cabinets that have drawers
+    - The cabinet selected to manipulate is randomly sampled from all PartnetMobility cabinets
+      that have drawers
     - The drawer to open is randomly sampled from all drawers available to open
 
     **Success Conditions:**
-    - The drawer is open at least 90% of the way, and the angular/linear velocities of the drawer link are small
+    - The drawer is open at least 90% of the way, and the angular/linear velocities of the
+      drawer link are small
 
     **Goal Specification:**
-    - 3D goal position centered at the center of mass of the handle mesh on the drawer to open (also visualized in human renders with a sphere).
+    - 3D goal position is defined as the center of mass of the handle mesh on the drawer to
+      open. In human renders, this goal is visualized with a sphere.
+
     """
 
     _sample_video_link = "https://github.com/mani-skill/ManiSkill/raw/main/figures/environment_demos/OpenCabinetDrawer-v1_rt.mp4"
@@ -126,8 +129,9 @@ class OpenCabinetDrawerEnv(BaseEnv):
         )
 
     def _load_cabinets(self, joint_types: list[str]):
-        # we sample random cabinet model_ids with numpy as numpy is always deterministic based on seed, regardless of
-        # GPU/CPU simulation backends. This is useful for replaying demonstrations.
+        # we sample random cabinet model_ids with numpy as numpy is always deterministic
+        # based on seed, regardless of GPU/CPU simulation backends. This is useful for
+        # replaying demonstrations.
         model_ids = self._batched_episode_rng.choice(self.all_model_ids)
         link_ids = self._batched_episode_rng.randint(0, 2**31)
 
@@ -145,8 +149,9 @@ class OpenCabinetDrawerEnv(BaseEnv):
             cabinet_builder.initial_pose = sapien.Pose(p=[0, 0, 0], q=[1, 0, 0, 0])
             cabinet = cabinet_builder.build(name=f"{model_id}-{i}")
             self.remove_from_state_dict_registry(cabinet)
-            # this disables self collisions by setting the group 2 bit at CABINET_COLLISION_BIT all the same
-            # that bit is also used to disable collision with the ground plane
+            # disables self collisions by setting group 2 bit at CABINET_COLLISION_BIT for all;
+            # this bit is also used to disable collisions with the ground plane
+
             for link in cabinet.links:
                 link.set_collision_group_bit(
                     group=2, bit_idx=CABINET_COLLISION_BIT, bit=1
@@ -164,15 +169,17 @@ class OpenCabinetDrawerEnv(BaseEnv):
                     # save the first mesh in the link object that correspond with a handle
                     handle_links_meshes[-1].append(
                         link.generate_mesh(
-                            filter=lambda _, render_shape: "handle"
-                            in render_shape.name,
+                            filter=lambda _, render_shape: (
+                                "handle" in render_shape.name
+                            ),
                             mesh_name="handle",
                         )[0]
                     )
 
-        # we can merge different articulations/links with different degrees of freedoms into a single view/object
-        # allowing you to manage all of them under one object and retrieve data like qpos, pose, etc. all together
-        # and with high performance. Note that some properties such as qpos and qlimits are now padded.
+        # we can merge different articulations or links, even with varying degrees of freedom,
+        # into a single view or object. This lets you efficiently manage and retrieve properties
+        # (like qpos and pose) for all at once. Note: padded values may appear in the merged view,
+        # e.g. for qpos and qlimits.
         self.cabinet = Articulation.merge(self._cabinets, name="cabinet")
         self.add_to_state_dict_registry(self.cabinet)
         self.handle_link = Link.merge(
@@ -202,11 +209,13 @@ class OpenCabinetDrawerEnv(BaseEnv):
 
     def _after_reconfigure(self, options):
         # To spawn cabinets in the right place, we need to change their z position such that
-        # the bottom of the cabinet sits at z=0 (the floor). Luckily the partnet mobility dataset is made such that
-        # the negative of the lower z-bound of the collision mesh bounding box is the right value
+        # the bottom of the cabinet sits at z=0 (the floor). Luckily the partnet mobility dataset
+        # is made such that the negative of the lower z-bound of the collision mesh bounding box
+        # is the right value
 
-        # this code is in _after_reconfigure since retrieving collision meshes requires the GPU to be initialized
-        # which occurs after the initial reconfigure call (after self._load_scene() is called)
+        # this code is in _after_reconfigure since retrieving collision meshes requires the GPU to
+        # be initialized which occurs after the initial reconfigure call
+        # (after self._load_scene() is called)
         self.cabinet_zs = []
         for cabinet in self._cabinets:
             collision_mesh = cabinet.get_first_collision_mesh()
@@ -272,19 +281,20 @@ class OpenCabinetDrawerEnv(BaseEnv):
                 qpos[:, 2] = ori
                 self.agent.robot.set_qpos(qpos)
                 self.agent.robot.set_pose(sapien.Pose())
-            # close all the cabinets. We know beforehand that lower qlimit means "closed" for these assets.
+            # close all the cabinets. We know beforehand that lower qlimit means "closed" for
+            # these assets.
             qlimits = self.cabinet.get_qlimits()  # [b, self.cabinet.max_dof, 2])
             self.cabinet.set_qpos(qlimits[env_idx, :, 0])
             self.cabinet.set_qvel(self.cabinet.qpos[env_idx] * 0)
 
-            # NOTE (stao): This is a temporary work around for the issue where the cabinet drawers/doors might open
-            # themselves on the first step. It's unclear why this happens on GPU sim only atm.
-            # moreover despite setting qpos/qvel to 0, the cabinets might still move on their own a little bit.
-            # this may be due to oblong meshes.
+            # NOTE (stao): Temporary workaround—cabinet drawers/doors may open themselves
+            # on the first step. Cause on physx_cuda is unclear. Even after setting
+            # qpos/qvel to zero, cabinets could still move a little, possibly due to
+            # oblong meshes.
             if self.gpu_sim_enabled:
                 self.scene._gpu_apply_all()
-                self.scene.px.gpu_update_articulation_kinematics()
-                self.scene.px.step()
+                self.scene.physics_sim._gpu_update_articulation_kinematics()
+                self.scene.physics_sim.physics_step()
                 self.scene._gpu_fetch_all()
 
             self.handle_link_goal.set_pose(
@@ -293,10 +303,11 @@ class OpenCabinetDrawerEnv(BaseEnv):
 
     def _after_control_step(self):
         # after each control step, we update the goal position of the handle link
-        # for GPU sim we need to update the kinematics data to get latest pose information for up to date link poses
-        # and fetch it, followed by an apply call to ensure the GPU sim is up to date
+        # for GPU sim we need to update the kinematics data to get latest pose information for up
+        # to date link poses and fetch it, followed by an apply call to ensure the GPU sim is up
+        # to date
         if self.gpu_sim_enabled:
-            self.scene.px.gpu_update_articulation_kinematics()
+            self.scene.physics_sim._gpu_update_articulation_kinematics()
             self.scene._gpu_fetch_all()
         self.handle_link_goal.set_pose(
             Pose.create_from_pq(p=self.handle_link_positions())
@@ -342,9 +353,9 @@ class OpenCabinetDrawerEnv(BaseEnv):
             self.target_qpos - self.handle_link.joint.qpos, self.target_qpos
         )
         open_reward = 2 * (1 - amount_to_open_left)
-        reaching_reward[
-            amount_to_open_left < 0.999
-        ] = 2  # if joint opens even a tiny bit, we don't need reach reward anymore
+        reaching_reward[amount_to_open_left < 0.999] = (
+            2  # if joint opens even a tiny bit, we don't need reach reward anymore
+        )
         # print(open_reward.shape)
         open_reward[info["open_enough"]] = 3  # give max reward here
         reward = reaching_reward + open_reward

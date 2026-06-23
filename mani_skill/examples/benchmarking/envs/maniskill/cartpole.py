@@ -1,18 +1,20 @@
 import os
+from typing import Optional, Union
+
 import numpy as np
 import sapien
 import torch
+
 from mani_skill.agents.base_agent import BaseAgent
 from mani_skill.agents.controllers.passive_controller import PassiveControllerConfig
 from mani_skill.agents.controllers.pd_joint_pos import PDJointPosControllerConfig
 from mani_skill.envs.tasks.control.cartpole import CartpoleBalanceEnv
-from mani_skill.sensors.camera import CameraConfig
-from mani_skill.utils import sapien_utils
+from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils.building.ground import build_ground
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import SceneConfig, SimConfig
-from typing import Optional, Union
+
 MJCF_FILE = f"{os.path.join(os.path.dirname(__file__), 'assets/cartpole.xml')}"
 
 
@@ -40,7 +42,9 @@ class CartPoleRobot(BaseAgent):
             )
         )
 
-    def _load_articulation(self, initial_pose: Optional[Union[sapien.Pose, Pose]] = None):
+    def _load_articulation(
+        self, initial_pose: Optional[Union[sapien.Pose, Pose]] = None
+    ):
         """
         Load the robot articulation
         """
@@ -128,7 +132,7 @@ class CartPoleBalanceBenchmarkEnv(CartpoleBalanceEnv):
 
     def _load_lighting(self, options: dict):
         """Loads lighting into the scene. Called by `self._reconfigure`. If not overriden will set some simple default lighting"""
-        self.scene.set_ambient_light(np.array([1, 1, 1]) * 0.3)
+        self.scene.render_sim.set_ambient_light(np.array([1, 1, 1]) * 0.3)
         for i in range(self.num_envs):
             self.scene.sub_scenes[i].set_environment_map(
                 os.path.join(

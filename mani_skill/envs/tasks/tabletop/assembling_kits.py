@@ -10,7 +10,7 @@ from mani_skill import ASSET_DIR
 from mani_skill.agents.robots import PandaWristCam
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.envs.utils import randomization
-from mani_skill.sensors.camera import CameraConfig
+from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import common, io_utils, sapien_utils
 from mani_skill.utils.geometry import rotation_conversions
 from mani_skill.utils.registration import register_env
@@ -167,8 +167,8 @@ class AssemblingKitsEnv(BaseEnv):
                 # save the goal position and z-axis rotation of the object to place
                 self.goal_pos[i] = object_goal_pos[episode["obj_to_place"]]
                 self.goal_rot[i] = object_goal_rot[episode["obj_to_place"]]
-            self.obj = Actor.merge(objs_to_place)
-            self.object_ids = torch.tensor(self.object_ids, dtype=int)
+            self.obj = Actor.merge(objs_to_place, name="obj")
+            self.object_ids = torch.tensor(self.object_ids, dtype=torch.int32)
             self.goal_pos = common.to_tensor(self.goal_pos)
             self.goal_rot = common.to_tensor(self.goal_rot)
 

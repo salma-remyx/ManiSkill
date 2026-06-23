@@ -13,7 +13,6 @@ from typing import Tuple, Union
 
 import numpy as np
 import sapien
-import sapien.physx as physx
 import torch
 import transforms3d
 import trimesh
@@ -23,6 +22,7 @@ from mani_skill.agents.robots.fetch import (
     FETCH_BASE_COLLISION_BIT,
     FETCH_WHEELS_COLLISION_BIT,
 )
+from mani_skill.sim.sapien.structs.actor import SapienActor
 from mani_skill.utils.scene_builder import SceneBuilder
 from mani_skill.utils.scene_builder.registration import register_scene_builder
 from mani_skill.utils.structs import Actor, Articulation
@@ -34,7 +34,6 @@ IGNORE_FETCH_COLLISION_STRS = ["mat", "rug", "carpet"]
 
 @register_scene_builder("ReplicaCAD")
 class ReplicaCADSceneBuilder(SceneBuilder):
-
     robot_initial_pose = sapien.Pose(
         p=[-1, 0, 0.02]
     )  # generally a safe initial spawn pose for the Fetch robot
@@ -139,7 +138,6 @@ class ReplicaCADSceneBuilder(SceneBuilder):
             # In the case of ReplicaCAD there are only dynamic and static objects. Since dynamic objects can be moved during simulation
             # we need to keep track of the initial poses of each dynamic actor we create.
             for obj_num, obj_meta in enumerate(build_config_json["object_instances"]):
-
                 # Again, for any dataset you will have to figure out how they reference object files
                 # Note that ASSET_DIR will always refer to the ~/.maniskill/data folder or whatever MS_ASSET_DIR is set to
                 obj_config_path = osp.join(
@@ -162,7 +160,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
                 # left multiplying by the offset quaternion we used for the stage/scene background as all assets in ReplicaCAD are rotated by 90 degrees
                 pose = sapien.Pose(q=q) * sapien.Pose(pos, rot)
 
-                actor_name = f'{obj_meta["template_name"]}-{obj_num}'
+                actor_name = f"{obj_meta['template_name']}-{obj_num}"
                 # Neatly for simulation, ReplicaCAD specifies if an object is meant to be simulated as dynamic (can be moved like pots) or static (must stay still, like kitchen counters)
                 if obj_meta["motion_type"] == "DYNAMIC":
                     builder.add_visual_from_file(visual_file)
@@ -207,7 +205,6 @@ class ReplicaCADSceneBuilder(SceneBuilder):
             for i, articulated_meta in enumerate(
                 build_config_json["articulated_object_instances"]
             ):
-
                 template_name = articulated_meta["template_name"]
                 if "door" in template_name:
                     continue
@@ -230,17 +227,17 @@ class ReplicaCADSceneBuilder(SceneBuilder):
                 pose = sapien.Pose(q=q) * sapien.Pose(pos, rot)
                 builder.initial_pose = pose
                 builder.set_scene_idxs(env_idx)
-                articulation = builder.build()
+                articulation = builder.build(urdf_loader.name)
                 self._default_object_poses.append((articulation, pose))
 
                 # for now classify articulated objects as "movable" object
                 for env_num in env_idx:
-                    self.articulations[
-                        f"env-{env_num}_{articulation_name}"
-                    ] = articulation
-                    self.scene_objects[
-                        f"env-{env_num}_{articulation_name}"
-                    ] = articulation
+                    self.articulations[f"env-{env_num}_{articulation_name}"] = (
+                        articulation
+                    )
+                    self.scene_objects[f"env-{env_num}_{articulation_name}"] = (
+                        articulation
+                    )
 
                 for link in articulation.links:
                     link.set_collision_group_bit(
@@ -272,23 +269,23 @@ class ReplicaCADSceneBuilder(SceneBuilder):
                     )
                 )
         else:
-            self.scene.set_ambient_light([0.3] * 3)
+            self.scene.render_sim.set_ambient_light([0.3] * 3)
         color = np.array([1.0, 0.8, 0.5]) * 2
         # entrance
-        self.scene.add_point_light([-1.1, 2.775, 2.3], color=color)
+        self.scene.render_sim.add_point_light([-1.1, 2.775, 2.3], color=color)
         # dining area
-        self.scene.add_point_light([-0.5, -1.44, 2.3], color=color)
+        self.scene.render_sim.add_point_light([-0.5, -1.44, 2.3], color=color)
         # dining back
-        self.scene.add_point_light([2.4, -1.6, 2.3], color=color)
+        self.scene.render_sim.add_point_light([2.4, -1.6, 2.3], color=color)
         # living room
-        self.scene.add_point_light([2.5, -6.1, 2.3], color=color)
+        self.scene.render_sim.add_point_light([2.5, -6.1, 2.3], color=color)
         # stair
-        self.scene.add_point_light([3.14, 3.24, 3], color=color)
+        self.scene.render_sim.add_point_light([3.14, 3.24, 3], color=color)
 
         # merge actors into one
-        self.bg = Actor.create_from_entities(
+        self.bg = SapienActor.create_from_entities(
             bgs,
-            scene=self.scene,
+            sim=self.scene.physics_sim,
             scene_idxs=torch.arange(self.env.num_envs, dtype=int),
             shared_name="scene_background",
         )
@@ -310,8 +307,8 @@ class ReplicaCADSceneBuilder(SceneBuilder):
 
         if self.scene.gpu_sim_enabled and len(env_idx) == self.env.num_envs:
             self.scene._gpu_apply_all()
-            self.scene.px.gpu_update_articulation_kinematics()
-            self.scene.px.step()
+            self.scene.physics_sim._gpu_update_articulation_kinematics()
+            self.scene.physics_sim.physics_step()
             self.scene._gpu_fetch_all()
 
         # teleport robot back to correct location

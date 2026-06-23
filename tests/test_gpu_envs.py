@@ -1,12 +1,8 @@
 import gymnasium as gym
-import numpy as np
 import pytest
 import torch
 
 from mani_skill.agents.multi_agent import MultiAgent
-from mani_skill.envs.sapien_env import BaseEnv
-from mani_skill.utils import gym_utils
-from mani_skill.utils.structs.types import SimConfig
 from mani_skill.vector.wrappers.gymnasium import ManiSkillVectorEnv
 from tests.utils import (
     CONTROL_MODES_STATIONARY_SINGLE_ARM,
@@ -21,7 +17,9 @@ from tests.utils import (
 )
 
 
-def make_vec(env_id: str, num_envs: int, env_kwargs: dict = dict()) -> ManiSkillVectorEnv:
+def make_vec(
+    env_id: str, num_envs: int, env_kwargs: dict = dict()
+) -> ManiSkillVectorEnv:
     env = gym.make(env_id, num_envs=num_envs, **env_kwargs)
     return ManiSkillVectorEnv(env)
 
@@ -277,9 +275,9 @@ def test_timelimits():
         num_envs=16,
         env_kwargs=dict(sim_config=LOW_MEM_SIM_CONFIG),
     )
-    obs, _ = env.reset()
+    env.reset()
     for _ in range(50):
-        obs, _, terminated, truncated, _ = env.step(None)
+        _, _, _, truncated, _ = env.step(None)
     assert (truncated == torch.ones(16, dtype=bool, device=env.device)).all()
     env.close()
     del env
@@ -292,7 +290,7 @@ def test_hidden_objs(env_id):
         env_id,
         num_envs=16,
     )
-    obs, _ = env.reset()
+    env.reset()
     hide_obj = env.unwrapped._hidden_objects[0]
 
     def test_fn():
@@ -303,7 +301,7 @@ def test_hidden_objs(env_id):
         raw_pose = hide_obj.pose.raw_pose.clone()
         p = hide_obj.pose.p.clone()
         q = hide_obj.pose.q.clone()
-        if hide_obj.px_body_type == "dynamic":
+        if hide_obj.body_type == "dynamic":
             linvel = hide_obj.linear_velocity.clone()
             angvel = hide_obj.angular_velocity.clone()
         # 1. check relevant hidden properties are active
@@ -324,7 +322,7 @@ def test_hidden_objs(env_id):
             < 1e6
         ).all()
 
-        if hide_obj.px_body_type == "dynamic":
+        if hide_obj.body_type == "dynamic":
             # 3. check that linvel and angvel same as before
             assert (hide_obj.linear_velocity == linvel).all()
             assert (hide_obj.angular_velocity == angvel).all()
@@ -360,7 +358,7 @@ def test_hidden_objs(env_id):
         # 1. check relevant hidden properties are active
         assert not hide_obj.hidden
 
-        if hide_obj.px_body_type == "dynamic":
+        if hide_obj.body_type == "dynamic":
             # 2. check that qvel, linvel, angvel same as before
             assert (hide_obj.linear_velocity == linvel).all()
             assert (hide_obj.angular_velocity == angvel).all()

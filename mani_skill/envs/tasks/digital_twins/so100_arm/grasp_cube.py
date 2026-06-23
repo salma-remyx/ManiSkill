@@ -11,14 +11,14 @@ from transforms3d.euler import euler2quat
 import mani_skill.envs.utils.randomization as randomization
 from mani_skill.agents.robots.so100.so_100 import SO100
 from mani_skill.envs.tasks.digital_twins.base_env import BaseDigitalTwinEnv
-from mani_skill.sensors.camera import CameraConfig
+from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import common, sapien_utils
 from mani_skill.utils.logging_utils import logger
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
 from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.pose import Pose
-from mani_skill.utils.structs.types import GPUMemoryConfig, SimConfig
+from mani_skill.utils.structs.types import SimConfig
 
 
 # there are many ways to parameterize an environment's domain randomization. This is a simple way to do it
@@ -178,11 +178,11 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
                 for i, scene in enumerate(self.scene.sub_scenes):
                     scene.render_system.ambient_light = ambient_colors[i]
         else:
-            self.scene.set_ambient_light([0.3, 0.3, 0.3])
-        self.scene.add_directional_light(
+            self.scene.render_sim.set_ambient_light([0.3, 0.3, 0.3])
+        self.scene.render_sim.add_directional_light(
             [1, 1, -1], [1, 1, 1], shadow=False, shadow_scale=5, shadow_map_size=2048
         )
-        self.scene.add_directional_light([0, 0, -1], [1, 1, 1])
+        self.scene.render_sim.add_directional_light([0, 0, -1], [1, 1, 1])
 
     def _load_scene(self, options: dict):
         # we use a predefined table scene builder which simply adds a table and floor to the scene
@@ -239,7 +239,9 @@ class SO100GraspCubeEnv(BaseDigitalTwinEnv):
                 restitution=0,
             )
             builder.add_box_collision(
-                half_size=[half_sizes[i]] * 3, material=material, density=200  # 25
+                half_size=[half_sizes[i]] * 3,
+                material=material,
+                density=200,  # 25
             )
             builder.add_box_visual(
                 half_size=[half_sizes[i]] * 3,

@@ -1,52 +1,29 @@
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, Sequence, TypeVar, Union, cast
+from typing import TYPE_CHECKING, cast
 
-import sapien
 import torch
 
 from mani_skill.render import PREBUILT_SHADER_CONFIGS, ShaderConfig, set_shader_pack
-from mani_skill.utils.structs import Actor, Articulation, Link
+from mani_skill.sim.sapien.structs.actor import SapienActor
+from mani_skill.sim.sapien.structs.articulation import SapienArticulation
+from mani_skill.sim.sapien.structs.link import SapienLink
+from mani_skill.sim.sensors.camera import Camera, CameraConfig
+from mani_skill.utils import sapien_utils
 from mani_skill.utils.structs.pose import Pose
-from mani_skill.utils.structs.types import Array
 
 if TYPE_CHECKING:
-    from mani_skill.envs.scene import ManiSkillScene
-
-from mani_skill.utils import sapien_utils
-
-from .base_sensor import BaseSensor, BaseSensorConfig
+    from mani_skill.sim.sapien.sim import SapienSim
 
 
 @dataclass
-class CameraConfig(BaseSensorConfig):
-
-    uid: str
-    """uid (str): unique id of the camera"""
-    pose: Union[Pose, sapien.Pose]
-    """Pose of the camera"""
-    width: int
-    """width of the camera"""
-    height: int
-    """height of the camera"""
-    fov: Optional[float] = None
-    """The field of view of the camera. Either fov or intrinsic must be given"""
-    near: float = 0.01
-    """near plane of the camera"""
-    far: float = 100
-    """far plane of the camera"""
-    intrinsic: Optional[Array] = None
-    """intrinsics matrix of the camera. Either fov or intrinsic must be given"""
-    entity_uid: Optional[str] = None
-    """unique id of the entity to mount the camera. Defaults to None. Only used by agent classes that want to define mounted cameras."""
-    mount: Optional[Union[Actor, Link]] = None
-    """the Actor or Link to mount the camera on top of. This means the global pose of the mounted camera is now mount.pose * local_pose"""
+class SapienCameraConfig(CameraConfig):
     shader_pack: str = "minimal"
     """The shader to use for rendering. Defaults to "minimal" which is the fastest rendering system with minimal GPU memory usage. There is also ``default`` and ``rt``."""
-    shader_config: Optional[ShaderConfig] = None
+    shader_config: ShaderConfig | None = None
     """The shader config to use for rendering. If None, the shader_pack will be used to search amongst prebuilt shader configs to create a ShaderConfig."""
+    mount: SapienActor | SapienLink | None = None
 
     def __post_init__(self):
         self.pose = Pose.create(self.pose)
@@ -55,96 +32,21 @@ class CameraConfig(BaseSensorConfig):
         else:
             self.shader_pack = self.shader_config.shader_pack
 
-    def __repr__(self) -> str:
-        return self.__class__.__name__ + "(" + str(self.__dict__) + ")"
 
-
-T = TypeVar("T", bound=BaseSensorConfig)
-
-
-def update_sensor_configs_from_dict(
-    sensor_configs: dict[str, T], config_dict: dict[str, dict]
-):
-    # Update CameraConfig to StereoDepthCameraConfig
-    if config_dict.pop("use_stereo_depth", False):
-        from .depth_camera import StereoDepthCameraConfig  # fmt: skip
-        for name, config in sensor_configs.items():
-            sensor_configs[name] = StereoDepthCameraConfig.fromCameraConfig(config)
-
-    # First, apply global configuration
-    for k, v in config_dict.items():
-        if k in sensor_configs:
-            continue
-        for config in sensor_configs.values():
-            if isinstance(config, CameraConfig):
-                if not hasattr(config, k):
-                    raise AttributeError(
-                        f"{k} is not a valid attribute of CameraConfig"
-                    )
-                else:
-                    if k == "shader_pack":
-                        config.shader_config = None
-                    setattr(config, k, v)
-    # Then, apply camera-specific configuration
-    for name, v in config_dict.items():
-        if name not in sensor_configs:
-            continue
-
-        # Update CameraConfig to StereoDepthCameraConfig
-        if v.pop("use_stereo_depth", False):
-            from .depth_camera import StereoDepthCameraConfig  # fmt: skip
-            config = sensor_configs[name]
-            sensor_configs[name] = StereoDepthCameraConfig.fromCameraConfig(config)
-
-        config = sensor_configs[name]
-        if isinstance(config, CameraConfig):
-            for kk in v:
-                if kk == "shader_pack":
-                    config.shader_config = None
-                assert hasattr(
-                    config, kk
-                ), f"{kk} is not a valid attribute of CameraConfig"
-            v = copy.deepcopy(v)
-            # for json serailizable gym.make args, user has to pass a list, not a Pose object.
-            if "pose" in v and isinstance(v["pose"], list):
-                v["pose"] = sapien.Pose(v["pose"][:3], v["pose"][3:])
-            config.__dict__.update(v)
-    for config in sensor_configs.values():
-        if isinstance(config, CameraConfig):
-            config.__post_init__()
-
-
-def parse_sensor_configs(
-    sensor_configs: Union[Sequence[T], dict[str, T], T]
-) -> dict[str, T]:
-    if isinstance(sensor_configs, (tuple, list)):
-        return dict([(config.uid, config) for config in sensor_configs])
-    elif isinstance(sensor_configs, dict):
-        return dict(sensor_configs)
-    elif isinstance(sensor_configs, BaseSensorConfig):
-        return dict([(sensor_configs.uid, sensor_configs)])
-    else:
-        raise TypeError(type(sensor_configs))
-
-
-class Camera(BaseSensor):
-    """Implementation of the Camera sensor which uses the sapien Camera."""
-
-    config: CameraConfig
-
+class SapienCamera(Camera):
     def __init__(
         self,
-        camera_config: CameraConfig,
-        scene: ManiSkillScene,
-        articulation: Optional[Articulation] = None,
+        camera_config: SapienCameraConfig,
+        sim: SapienSim,
+        articulation: SapienArticulation | None = None,
     ):
-        super().__init__(config=camera_config)
+        super().__init__(camera_config, sim, articulation)
         self._shader_config = cast(ShaderConfig, camera_config.shader_config)
         entity_uid = camera_config.entity_uid
         if camera_config.mount is not None:
             self.entity = camera_config.mount
         elif entity_uid is None:
-            self.entity = None
+            self.entity = cast(SapienActor | SapienLink, None)
         else:
             if articulation is None:
                 pass
@@ -152,7 +54,7 @@ class Camera(BaseSensor):
                 # if given an articulation and entity_uid (as a string), find the correct link to mount on
                 # this is just for convenience so robot configurations can pick link to mount to by string/id
                 self.entity = cast(
-                    Union[Actor, Link],
+                    SapienActor | SapienLink,
                     sapien_utils.get_obj_by_name(articulation.get_links(), entity_uid),
                 )
             if self.entity is None:
@@ -166,7 +68,7 @@ class Camera(BaseSensor):
         # Add camera to scene. Add mounted one if a entity is given
         set_shader_pack(self._shader_config)
         if self.entity is None:
-            self.camera = scene.add_camera(
+            self.camera = sim.add_camera(
                 name=camera_config.uid,
                 pose=camera_config.pose,
                 width=camera_config.width,
@@ -177,7 +79,7 @@ class Camera(BaseSensor):
                 far=camera_config.far,
             )
         else:
-            self.camera = scene.add_camera(
+            self.camera = sim.add_camera(
                 name=camera_config.uid,
                 mount=self.entity,
                 pose=camera_config.pose,
@@ -248,9 +150,11 @@ class Camera(BaseSensor):
         return images_dict
 
     def get_images(self, obs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        """
+        Get RGB versions of images in the observation dictionary
+        """
         return camera_observations_to_images(obs)
 
-    # TODO (stao): Computing camera parameters on GPU sim is not that fast, especially with mounted cameras and for model_matrix computation.
     def get_params(self):
         return dict(
             extrinsic_cv=self.camera.get_extrinsic_matrix(),
