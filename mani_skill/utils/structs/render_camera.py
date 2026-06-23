@@ -1,19 +1,14 @@
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, Union
-
-from mani_skill.utils.geometry.rotation_conversions import quaternion_to_matrix
-
-if TYPE_CHECKING:
-    from mani_skill.envs.scene import ManiSkillScene
+from typing import Any, Optional, Union
 
 import numpy as np
 import sapien
-import sapien.physx as physx
 import sapien.render
 import torch
 
 from mani_skill.render import SAPIEN_RENDER_SYSTEM
 from mani_skill.utils import common
+from mani_skill.utils.geometry.rotation_conversions import quaternion_to_matrix
 from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.link import Link
 from mani_skill.utils.structs.pose import Pose

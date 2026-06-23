@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional, Union, cast, overload
+from typing import Optional, cast, overload
 
-import sapien
 import torch
 
 from mani_skill.utils import common
@@ -12,6 +11,11 @@ from mani_skill.utils.geometry.rotation_conversions import (
 )
 from mani_skill.utils.structs.types import Array, Device
 
+try:
+    import sapien
+except ImportError:
+    sapien = None
+
 
 def add_batch_dim(x):
     if len(x.shape) == 1:
@@ -20,13 +24,11 @@ def add_batch_dim(x):
 
 
 @overload
-def to_batched_tensor(x: None, device: Optional[Device] = None) -> None:
-    ...
+def to_batched_tensor(x: None, device: Optional[Device] = None) -> None: ...
 
 
 @overload
-def to_batched_tensor(x: Array, device: Optional[Device] = None) -> torch.Tensor:
-    ...
+def to_batched_tensor(x: Array, device: Optional[Device] = None) -> torch.Tensor: ...
 
 
 def to_batched_tensor(x: Optional[Array], device: Optional[Device] = None):
@@ -129,11 +131,11 @@ class Pose:
     @classmethod
     def create(
         cls,
-        pose: Union[Array, sapien.Pose, list[sapien.Pose], "Pose"],
+        pose: Array | "Pose",
         device: Optional[Device] = None,
     ) -> "Pose":
         """Creates a Pose object from a given ``pose``, which can be a torch tensor, sapien.Pose, list of sapien.Pose, or Pose"""
-        if isinstance(pose, sapien.Pose):
+        if sapien is not None and isinstance(pose, sapien.Pose):
             raw_pose = torch.hstack(
                 [
                     common.to_tensor(pose.p, device=device),
@@ -141,9 +143,11 @@ class Pose:
                 ]
             )
             return cls(raw_pose=add_batch_dim(raw_pose))
-        elif isinstance(pose, cls):
-            return cls(raw_pose=pose.raw_pose.to(device))
-        elif isinstance(pose, list) and isinstance(pose[0], sapien.Pose):
+        elif (
+            sapien is not None
+            and isinstance(pose, list)
+            and isinstance(pose[0], sapien.Pose)
+        ):
             ps = []
             qs = []
             for p in pose:
@@ -152,7 +156,8 @@ class Pose:
             ps = common.to_tensor(ps, device=device)
             qs = common.to_tensor(qs, device=device)
             return cls(raw_pose=torch.hstack([ps, qs]))
-
+        elif isinstance(pose, cls):
+            return cls(raw_pose=pose.raw_pose.to(device))
         else:
             pose = common.to_tensor(cast(Array, pose), device=device)
             assert len(pose.shape) <= 2 and len(pose.shape) > 0
@@ -192,7 +197,7 @@ class Pose:
     # def __init__(self, p: numpy.ndarray[numpy.float32, _Shape, _Shape[3]] = array([0., 0., 0.], dtype=float32), q: numpy.ndarray[numpy.float32, _Shape, _Shape[4]] = array([1., 0., 0., 0.], dtype=float32)) -> None: ...
     # @typing.overload
     # def __init__(self, arg0: numpy.ndarray[numpy.float32, _Shape[4, 4]]) -> None: ...
-    def __mul__(self, arg0: Union["Pose", sapien.Pose]) -> "Pose":
+    def __mul__(self, arg0: "Pose") -> "Pose":
         """
         Multiply two poses. Supports multiplying singular poses like sapien.Pose or Pose object with batch size of 1 with Pose objects with batch size > 1.
         """
@@ -270,23 +275,12 @@ class Pose:
     def q(self, arg1: torch.Tensor):
         self.raw_pose[..., 3:] = common.to_tensor(arg1)
 
-    # @property
-    # def rpy(self) -> numpy.ndarray[numpy.float32, _Shape, _Shape[3]]:
-    #     """
-    #     :type: numpy.ndarray[numpy.float32, _Shape, _Shape[3]]
-    #     """
-    # @rpy.setter
-    # def rpy(self, arg1: numpy.ndarray[numpy.float32, _Shape, _Shape[3]]) -> None:
-    #     pass
 
-
-def vectorize_pose(
-    pose: Union[sapien.Pose, Pose, Array], device: Optional[Device] = None
-) -> torch.Tensor:
+def vectorize_pose(pose: Pose | Array, device: Optional[Device] = None) -> torch.Tensor:
     """
     Maps several formats of Pose representation to the appropriate tensor representation
     """
-    if isinstance(pose, sapien.Pose):
+    if sapien is not None and isinstance(pose, sapien.Pose):
         return torch.concatenate(
             [
                 common.to_tensor(pose.p, device=device),
@@ -299,25 +293,31 @@ def vectorize_pose(
         return common.to_tensor(pose, device=device)
 
 
-def to_sapien_pose(pose: Union[torch.Tensor, sapien.Pose, Pose]) -> sapien.Pose:
-    """
-    Maps several formats to a sapien Pose
-    """
-    if isinstance(pose, sapien.Pose):
-        return pose
-    elif isinstance(pose, Pose):
-        pose = pose.raw_pose
-        assert len(pose.shape) == 1 or (
-            len(pose.shape) == 2 and pose.shape[0] == 1
-        ), "pose is batched. Note that sapien Poses are not batched. If you want to use a batched Pose object use from mani_skill.utils.structs.pose import Pose"
-        if len(pose.shape) == 2:
-            pose = pose[0]
-        pose_np = common.to_numpy(pose)
-    else:
-        assert len(pose.shape) == 1 or (
-            len(pose.shape) == 2 and pose.shape[0] == 1
-        ), "pose is batched. Note that sapien Poses are not batched. If you want to use a batched Pose object use from mani_skill.utils.structs.pose import Pose"
-        if len(pose.shape) == 2:
-            pose = pose[0]
-        pose_np = common.to_numpy(pose)
-    return sapien.Pose(pose_np[:3], pose_np[3:])  # pyright: ignore[reportArgumentType]
+if sapien is not None:
+
+    def to_sapien_pose(pose: torch.Tensor | sapien.Pose | Pose) -> sapien.Pose:
+        """
+        Maps several formats to a sapien Pose
+        """
+        if isinstance(pose, sapien.Pose):
+            return pose
+        elif isinstance(pose, Pose):
+            pose = pose.raw_pose
+            assert len(pose.shape) == 1 or (
+                len(pose.shape) == 2 and pose.shape[0] == 1
+            ), (
+                "pose is batched. Note that sapien Poses are not batched. If you want to use a batched Pose object use from mani_skill.utils.structs.pose import Pose"
+            )
+            if len(pose.shape) == 2:
+                pose = pose[0]
+            pose_np = common.to_numpy(pose)
+        else:
+            assert len(pose.shape) == 1 or (
+                len(pose.shape) == 2 and pose.shape[0] == 1
+            ), (
+                "pose is batched. Note that sapien Poses are not batched. If you want to use a batched Pose object use from mani_skill.utils.structs.pose import Pose"
+            )
+            if len(pose.shape) == 2:
+                pose = pose[0]
+            pose_np = common.to_numpy(pose)
+        return sapien.Pose(pose_np[:3], pose_np[3:])  # pyright: ignore[reportArgumentType]

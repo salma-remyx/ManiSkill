@@ -1,10 +1,7 @@
 import numpy as np
-import sapien
-import sapien.physx as physx
 import torch
-# from scipy.spatial.transform import Rotation
 
-from mani_skill.utils.geometry.bounding_cylinder import aabc
+# from scipy.spatial.transform import Rotation
 
 
 def sample_on_unit_sphere(rng):
@@ -46,89 +43,6 @@ def angle_between_vec(a, b):  # from a to b
     b = b / np.linalg.norm(b)
     angle = np.arccos(a @ b)
     return angle
-
-
-def wxyz_to_xyzw(q):
-    return np.concatenate([q[1:4], q[0:1]])
-
-
-def xyzw_to_wxyz(q):
-    return np.concatenate([q[3:4], q[0:3]])
-
-
-def rotate_2d_vec_by_angle(vec, theta):
-    rot_mat = np.array(
-        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]
-    )
-    return rot_mat @ vec
-
-
-def angle_distance(q0: sapien.Pose, q1: sapien.Pose):
-    qd = (q0.inv() * q1).q
-    return 2 * np.arctan2(np.linalg.norm(qd[1:]), qd[0]) / np.pi
-
-
-def get_axis_aligned_bbox_for_articulation(art: physx.PhysxArticulation):
-    mins = np.array([np.inf, np.inf, np.inf])
-    maxs = -mins
-    for link in art.get_links():
-        lp = link.pose
-        for s in link.get_collision_shapes():
-            p = lp * s.get_local_pose()
-            T = p.to_transformation_matrix()
-            assert isinstance(s, physx.PhysxCollisionShapeConvexMesh)
-            vertices = s.vertices * s.scale
-            vertices = vertices @ T[:3, :3].T + T[:3, 3]
-            mins = np.minimum(mins, vertices.min(0))
-            maxs = np.maximum(maxs, vertices.max(0))
-    return mins, maxs
-
-
-def get_axis_aligned_bbox_for_actor(actor: sapien.Entity):
-    mins = np.ones(3) * np.inf
-    maxs = -mins
-
-    for shape in actor.find_component_by_type(
-        physx.PhysxRigidDynamicComponent
-    ).get_collision_shapes():  # this is CollisionShape
-        assert isinstance(shape, physx.PhysxCollisionShapeConvexMesh)
-        scaled_vertices = shape.vertices * shape.scale
-        local_pose = shape.get_local_pose()
-        mat = (actor.get_pose() * local_pose).to_transformation_matrix()
-        world_vertices = scaled_vertices @ (mat[:3, :3].T) + mat[:3, 3]
-        mins = np.minimum(mins, world_vertices.min(0))
-        maxs = np.maximum(maxs, world_vertices.max(0))
-
-    return mins, maxs
-
-
-def get_local_axis_aligned_bbox_for_link(link: physx.PhysxArticulationLinkComponent):
-    mins = np.array([np.inf, np.inf, np.inf])
-    maxs = -mins
-    for s in link.get_collision_shapes():
-        assert isinstance(s, physx.PhysxCollisionShapeConvexMesh)
-        p = s.get_local_pose()
-        T = p.to_transformation_matrix()
-        vertices = s.vertices * s.scale
-        vertices = vertices @ T[:3, :3].T + T[:3, 3]
-        mins = np.minimum(mins, vertices.min(0))
-        maxs = np.maximum(maxs, vertices.max(0))
-    return mins, maxs
-
-
-def get_local_aabc_for_actor(actor: sapien.Entity):
-    all_vertices = []
-    for s in actor.find_component_by_type(
-        physx.PhysxRigidDynamicComponent
-    ).get_collision_shapes():
-        assert isinstance(s, physx.PhysxCollisionShapeConvexMesh)
-        p = s.get_local_pose()
-        T = p.to_transformation_matrix()
-        vertices = s.vertices * s.scale
-        vertices = vertices @ T[:3, :3].T + T[:3, 3]
-        all_vertices.append(vertices)
-    vertices = np.vstack(all_vertices)
-    return aabc(vertices)
 
 
 def transform_points(H: torch.Tensor, pts: torch.Tensor) -> torch.Tensor:
