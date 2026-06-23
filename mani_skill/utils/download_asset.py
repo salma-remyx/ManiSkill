@@ -8,7 +8,6 @@ import zipfile
 from pathlib import Path
 from urllib.error import URLError
 
-from huggingface_hub import snapshot_download
 from tqdm.auto import tqdm
 
 from mani_skill.utils import assets
@@ -48,6 +47,7 @@ def sha256sum(filename, chunk_size=4096):
 def download_from_hf_datasets(
     data_source: assets.DataSource,
 ):
+    from huggingface_hub import snapshot_download
     output_dir = Path(data_source.output_dir)
     output_path = output_dir / data_source.target_path
     snapshot_download(

@@ -5,9 +5,7 @@ Common utilities often reused for internal code and task building for users.
 from collections import defaultdict
 from typing import Any, Optional, Sequence, Tuple, Union, cast, overload
 
-import gymnasium as gym
 import numpy as np
-import sapien.physx as physx
 import torch
 
 from mani_skill.utils.structs.types import Array, Device

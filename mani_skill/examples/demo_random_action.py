@@ -3,10 +3,9 @@ from typing import Annotated, Optional, Union
 
 import gymnasium as gym
 import numpy as np
-import sapien
 import tyro
 
-from mani_skill.envs.sapien_env import BaseEnv
+from mani_skill.envs.base_env import BaseEnv
 from mani_skill.utils import gym_utils
 from mani_skill.utils.wrappers import RecordEpisode
 
@@ -123,8 +122,10 @@ def main(args: Args):
         env.action_space.seed(args.seed[0])
     if args.render_mode == "human":
         viewer = env.render()
-        if isinstance(viewer, sapien.utils.Viewer):
-            viewer.paused = args.pause
+        if env.unwrapped.render_sim.id == "sapien":
+            import sapien
+            if isinstance(viewer, sapien.utils.Viewer):
+                viewer.paused = args.pause
         env.render()
     while True:
         action = env.action_space.sample() if env.action_space is not None else None
