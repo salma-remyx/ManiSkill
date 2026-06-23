@@ -19,9 +19,7 @@ from mani_skill.utils.geometry.rotation_conversions import matrix_to_quaternion
 from mani_skill.utils.structs.pose import Pose
 
 if TYPE_CHECKING:
-    from mani_skill.sim.loaders.urdf import BaseURDFLoader
     from mani_skill.sim.sensors.camera import CameraConfig
-    from mani_skill.utils.building.mjcf_loader import MJCFLoader
     from mani_skill.utils.structs.actor import Actor
 
 T = TypeVar("T")
@@ -87,86 +85,6 @@ def get_obj_by_type(objs: list[T], target_type: T, is_unique=True):
         return matched_objects[0]
     else:
         return None
-
-
-def check_urdf_config(urdf_config: dict):
-    """Check whether the urdf config is valid for SAPIEN.
-
-    Args:
-        urdf_config (dict): dict passed to `sapien.URDFLoader.load`.
-    """
-    allowed_keys = ["material", "density", "link"]
-    for k in urdf_config.keys():
-        if k not in allowed_keys:
-            raise KeyError(
-                f"Not allowed key ({k}) for `sapien.URDFLoader.load`. Allowed keys are f{allowed_keys}"
-            )
-
-    allowed_keys = ["material", "density", "patch_radius", "min_patch_radius"]
-    for k, v in urdf_config.get("link", {}).items():
-        for kk in v.keys():
-            # In fact, it should support specifying collision-shape-level materials.
-            if kk not in allowed_keys:
-                raise KeyError(
-                    f"Not allowed key ({kk}) for `sapien.URDFLoader.load`. Allowed keys are f{allowed_keys}"
-                )
-
-
-def parse_urdf_config(config_dict: dict) -> dict:
-    """Parse config from dict for SAPIEN URDF loader.
-
-    Args:
-        config_dict (dict): a dict containing link physical properties.
-
-    Returns:
-        dict: urdf config passed to `sapien.URDFLoader.load`.
-    """
-    # urdf_config = deepcopy(config_dict)
-    urdf_config = dict()
-
-    # Create the global physical material for all links
-    if "material" in config_dict:
-        urdf_config["material"] = physx.PhysxMaterial(**config_dict["material"])
-
-    # Create link-specific physical materials
-    materials = {}
-    if "_materials" in config_dict:
-        for k, v in config_dict["_materials"].items():
-            materials[k] = physx.PhysxMaterial(**v)
-
-    # Specify properties for links
-    if "link" in config_dict:
-        urdf_config["link"] = dict()
-        for k, link_config in config_dict["link"].items():
-            urdf_config["link"][k] = link_config.copy()
-            # substitute with actual material
-            urdf_config["link"][k]["material"] = materials[link_config["material"]]
-    return urdf_config
-
-
-def apply_urdf_config(loader: BaseURDFLoader | MJCFLoader, urdf_config: dict):
-    if "link" in urdf_config:
-        for name, link_config in urdf_config["link"].items():
-            if "material" in link_config:
-                mat: physx.PhysxMaterial = link_config["material"]
-                loader.set_link_material(
-                    name, mat.static_friction, mat.dynamic_friction, mat.restitution
-                )
-            if "patch_radius" in link_config:
-                loader.set_link_patch_radius(name, link_config["patch_radius"])
-            if "min_patch_radius" in link_config:
-                loader.set_link_min_patch_radius(name, link_config["min_patch_radius"])
-            if "density" in link_config:
-                loader.set_link_density(name, link_config["density"])
-    if "material" in urdf_config:
-        mat: physx.PhysxMaterial = urdf_config["material"]
-        loader.set_material(mat.static_friction, mat.dynamic_friction, mat.restitution)
-    if "patch_radius" in urdf_config:
-        loader.set_patch_radius(urdf_config["patch_radius"])
-    if "min_patch_radius" in urdf_config:
-        loader.set_min_patch_radius(urdf_config["min_patch_radius"])
-    if "density" in urdf_config:
-        loader.set_density(urdf_config["density"])
 
 
 # -------------------------------------------------------------------------- #

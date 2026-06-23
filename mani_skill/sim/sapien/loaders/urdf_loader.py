@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+import sapien.physx as physx
 from sapien.render import RenderCameraComponent
 from sapien.wrapper.urdf_loader import URDFLoader as OriginalSapienURDFLoader
 
@@ -131,3 +132,25 @@ class SapienURDFLoader(OriginalSapienURDFLoader, BaseURDFLoader):
                     )
 
         return articulations[0]
+
+    def parse_urdf_config(self, config_dict: dict) -> dict:
+        urdf_config = dict()
+
+        # Create the global physical material for all links
+        if "material" in config_dict:
+            urdf_config["material"] = physx.PhysxMaterial(**config_dict["material"])
+
+        # Create link-specific physical materials
+        materials = {}
+        if "_materials" in config_dict:
+            for k, v in config_dict["_materials"].items():
+                materials[k] = physx.PhysxMaterial(**v)
+
+        # Specify properties for links
+        if "link" in config_dict:
+            urdf_config["link"] = dict()
+            for k, link_config in config_dict["link"].items():
+                urdf_config["link"][k] = link_config.copy()
+                # substitute with actual material
+                urdf_config["link"][k]["material"] = materials[link_config["material"]]
+        return urdf_config

@@ -73,9 +73,7 @@ def batch(*args: Tuple[Union[Array, Sequence]]):
 def dict_merge(dct: dict, merge_dct: dict):
     """In place recursive merge of `merge_dct` into `dct`"""
     for k, v in merge_dct.items():
-        if (
-            k in dct and isinstance(dct[k], dict) and isinstance(merge_dct[k], dict)
-        ):  # noqa
+        if k in dct and isinstance(dct[k], dict) and isinstance(merge_dct[k], dict):  # noqa
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]
@@ -141,20 +139,17 @@ def index_dict_array(x1, idx: Union[int, slice], inplace=True):
 
 
 @overload
-def to_tensor(array: dict, device: Optional[Device] = None) -> dict:
-    ...
+def to_tensor(array: dict, device: Optional[Device] = None) -> dict: ...
 
 
 @overload
 def to_tensor(
     array: dict[str, Array], device: Optional[Device] = None
-) -> dict[str, torch.Tensor]:
-    ...
+) -> dict[str, torch.Tensor]: ...
 
 
 @overload
-def to_tensor(array: Array, device: Optional[Device] = None) -> torch.Tensor:
-    ...
+def to_tensor(array: Array, device: Optional[Device] = None) -> torch.Tensor: ...
 
 
 def to_tensor(array: Union[Array, dict], device: Optional[Device] = None):
@@ -370,7 +365,7 @@ def unbatch(*args: Tuple[Union[Array, Sequence]]):
 
 
 def _to_numpy(
-    array: Union[Array, bool, str, float, int, dict]
+    array: Union[Array, bool, str, float, int, dict],
 ) -> Union[np.ndarray, dict, bool, str, float, int]:
     if isinstance(array, dict):
         return {k: _to_numpy(v) for k, v in array.items()}
@@ -389,18 +384,15 @@ def _to_numpy(
 
 
 @overload
-def to_numpy(array: dict, dtype=None) -> dict:
-    ...
+def to_numpy(array: dict, dtype=None) -> dict: ...
 
 
 @overload
-def to_numpy(array: Array, dtype=None) -> np.ndarray[Any]:
-    ...
+def to_numpy(array: Array, dtype=None) -> np.ndarray[Any]: ...
 
 
 @overload
-def to_numpy(array: dict[str, Array], dtype=None) -> dict[str, np.ndarray]:
-    ...
+def to_numpy(array: dict[str, Array], dtype=None) -> dict[str, np.ndarray]: ...
 
 
 def to_numpy(array: Union[Array, dict], dtype=None) -> Union[np.ndarray, dict]:

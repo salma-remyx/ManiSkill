@@ -33,10 +33,13 @@ class BaseURDFLoader:
     """dictionary mapping sim id to the corresponding articulation builder for that simulator.
     """
 
+    __physics_sim: BaseSim
+    __render_sim: BaseSim
+
     sim: BaseSim
     """The simulation backend this loader loads in"""
 
-    def _add_sim(self, sim: BaseSim):
+    def _add_physics_sim(self, sim: BaseSim):
         """
         Add a simulation backend that should track this loader. Whenever this URDF is
         loaded, the simulator backend will include this URDF in its state and compile
@@ -48,6 +51,22 @@ class BaseURDFLoader:
         self.__sims[sim.id] = sim
         self.__sim_builders[sim.id] = sim.create_urdf_loader()
         self.__sim_builders[sim.id].sim = sim
+        self.__physics_sim = sim
+        return self
+
+    def _add_render_sim(self, sim: BaseSim):
+        """
+        Add a render simulation backend that should track this loader. Whenever this URDF is
+        loaded, the render simulator backend will include this URDF in its state and compile
+        it in the scene.
+
+        Args:
+            sim: The render simulation backend to add.
+        """
+        self.__sims[sim.id] = sim
+        self.__sim_builders[sim.id] = sim.create_urdf_loader()
+        self.__sim_builders[sim.id].sim = sim
+        self.__render_sim = sim
         return self
 
     @property
@@ -212,6 +231,13 @@ class BaseURDFLoader:
                 link_name, static_friction, dynamic_friction, restitution
             )
 
+    def set_link_density(self, link_name: str, density: float):
+        """
+        Sets the density for a link.
+        """
+        for sim in self.__sims.values():
+            self.__sim_builders[sim.id].set_link_density(link_name, density)
+
     def set_material(
         self, static_friction: float, dynamic_friction: float, restitution: float
     ):
@@ -255,3 +281,74 @@ class BaseURDFLoader:
             self.__sim_builders[sim.id].set_link_min_patch_radius(
                 link_name, min_patch_radius
             )
+
+    def set_patch_radius(self, patch_radius):
+        for sim in self.__sims.values():
+            self.__sim_builders[sim.id].set_patch_radius(patch_radius)
+
+    def set_min_patch_radius(self, min_patch_radius):
+        for sim in self.__sims.values():
+            self.__sim_builders[sim.id].set_min_patch_radius(min_patch_radius)
+
+    ### Useful URDF modifiers from dict/jsonable configs ###
+    def _check_urdf_config(self, urdf_config: dict):
+        """Check whether the urdf config is valid for SAPIEN.
+
+        Args:
+            urdf_config (dict): dict passed to `sapien.URDFLoader.load`.
+        """
+        allowed_keys = ["material", "density", "link"]
+        for k in urdf_config.keys():
+            if k not in allowed_keys:
+                raise KeyError(
+                    f"Not allowed key ({k}) for `sapien.URDFLoader.load`. Allowed: f{allowed_keys}"
+                )
+
+        allowed_keys = ["material", "density", "patch_radius", "min_patch_radius"]
+        for link_config in urdf_config.get("link", {}).values():
+            for kk in link_config.keys():
+                if kk not in allowed_keys:
+                    raise KeyError(
+                        f"Not allowed key ({kk}) for `sapien.URDFLoader.load`. "
+                        f"Allowed: f{allowed_keys}"
+                    )
+
+    def parse_urdf_config(self, config_dict: dict) -> dict:
+        """Parse config from dict for SAPIEN URDF loader to modify physical material properties
+
+        Args:
+            config_dict (dict): a dict containing link physical properties.
+
+        Returns:
+            dict: urdf config passed to `sapien.URDFLoader.load`.
+        """
+        return self.__sim_builders[self.__physics_sim.id].parse_urdf_config(config_dict)
+
+    def apply_urdf_config(self: BaseURDFLoader, urdf_config: dict):
+        self._check_urdf_config(urdf_config)
+        if "link" in urdf_config:
+            for name, link_config in urdf_config["link"].items():
+                if "material" in link_config:
+                    mat = link_config["material"]
+                    self.set_link_material(
+                        name, mat.static_friction, mat.dynamic_friction, mat.restitution
+                    )
+                if "patch_radius" in link_config:
+                    self.set_link_patch_radius(name, link_config["patch_radius"])
+                if "min_patch_radius" in link_config:
+                    self.set_link_min_patch_radius(
+                        name, link_config["min_patch_radius"]
+                    )
+                if "density" in link_config:
+                    self.set_link_density(name, link_config["density"])
+        if "material" in urdf_config:
+            mat = urdf_config["material"]
+            self.set_material(
+                mat.static_friction, mat.dynamic_friction, mat.restitution
+            )
+        if "patch_radius" in urdf_config:
+            self.set_patch_radius(urdf_config["patch_radius"])
+        if "min_patch_radius" in urdf_config:
+            self.set_min_patch_radius(urdf_config["min_patch_radius"])
+        if "density" in urdf_config:
+            self.set_density(urdf_config["density"])

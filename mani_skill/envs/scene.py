@@ -146,10 +146,10 @@ class ManiSkillScene:
 
         loader = BaseURDFLoader()
         if self._shared_sim_packages:
-            loader._add_sim(self.physics_sim)
+            loader._add_physics_sim(self.physics_sim)
         else:
-            loader._add_sim(self.physics_sim)
-            loader._add_sim(self.render_sim)
+            loader._add_physics_sim(self.physics_sim)
+            loader._add_physics_sim(self.render_sim)
         return loader
 
     def create_mjcf_loader(self):

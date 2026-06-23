@@ -1,6 +1,5 @@
 from mani_skill import ASSET_DIR, PACKAGE_ASSET_DIR
 from mani_skill.envs.scene import ManiSkillScene
-from mani_skill.utils import sapien_utils
 from mani_skill.utils.io_utils import load_json
 
 PARTNET_MOBILITY = None
@@ -54,13 +53,13 @@ def get_partnet_mobility_builder(
     loader.scale = metadata["scale"]
     loader.load_multiple_collisions_from_file = True
     urdf_path = PARTNET_MOBILITY["model_urdf_paths"][id]
-    applied_urdf_config = sapien_utils.parse_urdf_config(
+    applied_urdf_config = loader.parse_urdf_config(
         dict(
             material=dict(static_friction=1, dynamic_friction=1, restitution=0),
         )
     )
     applied_urdf_config.update(**urdf_config)
-    sapien_utils.apply_urdf_config(loader, applied_urdf_config)
+    loader.apply_urdf_config(applied_urdf_config)
     articulation_builders = loader.parse(str(urdf_path))["articulation_builders"]
     builder = articulation_builders[0]
     return builder

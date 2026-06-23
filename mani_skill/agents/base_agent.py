@@ -11,7 +11,7 @@ from gymnasium import spaces
 from mani_skill import format_path
 from mani_skill.agents.controllers.pd_joint_pos import PDJointPosControllerConfig
 from mani_skill.sim.sensors.base_sensor import BaseSensor, BaseSensorConfig
-from mani_skill.utils import assets, download_asset, sapien_utils
+from mani_skill.utils import assets, download_asset
 from mani_skill.utils.logging_utils import logger
 from mani_skill.utils.structs import Actor, Array, Articulation
 from mani_skill.utils.structs.pose import Pose
@@ -170,9 +170,8 @@ class BaseAgent:
             loader.disable_self_collisions = self.disable_self_collisions
 
             if self.urdf_config is not None:
-                urdf_config = sapien_utils.parse_urdf_config(self.urdf_config)
-                sapien_utils.check_urdf_config(urdf_config)
-                sapien_utils.apply_urdf_config(loader, urdf_config)
+                urdf_config = loader.parse_urdf_config(self.urdf_config)
+                loader.apply_urdf_config(urdf_config)
 
             if not os.path.exists(asset_path):
                 print(f"Robot {self.uid} definition file not found at {asset_path}")

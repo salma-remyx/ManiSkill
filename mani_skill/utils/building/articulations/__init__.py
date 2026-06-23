@@ -1,20 +1,21 @@
 from mani_skill.envs.scene import ManiSkillScene
-from mani_skill.utils.building.articulation_builder import ArticulationBuilder
+from mani_skill.sim.builders.articulation import BaseArticulationBuilder
 
-from .robel import build_robel_valve
+from .robel import build_robel_valve as build_robel_valve
 
 
 def get_articulation_builder(
     scene: ManiSkillScene,
     id: str,
     fix_root_link: bool = True,
-    urdf_config: dict = dict(),
-) -> ArticulationBuilder:
-    """Builds an articulation or returns an articulation builder given an ID specifying which dataset/source and then the articulation ID
+    urdf_config: dict | None = None,
+) -> BaseArticulationBuilder:
+    """Builds or returns an articulation builder for an ID, specifying dataset and articulation ID.
 
-    Currently these IDs are hardcoded for a few datasets. The new Shapedex platform for hosting and managing all assets will be
-    integrated in the future
+    Currently these IDs are hardcoded for a few datasets.
     """
+    if urdf_config is None:
+        urdf_config = dict()
     splits = id.split(":")
     dataset_source = splits[0]
     articulation_id = ":".join(splits[1:])
