@@ -1,6 +1,5 @@
 from .common import (
     build_box,
-    build_colorful_cube,
     build_cube,
     build_cylinder,
     build_fourcolor_peg,

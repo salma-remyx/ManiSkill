@@ -3,8 +3,11 @@ from typing import Generic, TypeVar
 
 import torch
 
+from mani_skill.utils.structs.articulation_joint import ArticulationJoint
 from mani_skill.utils.structs.base import BaseStruct
 from mani_skill.utils.structs.link import Link
+from mani_skill.utils.structs.pose import Pose
+from mani_skill.utils.structs.types import Array
 
 T = TypeVar("T", bound=BaseStruct)
 
@@ -34,6 +37,15 @@ class Articulation(Generic[T]):
     root: Link = None
     """The root Link"""
 
+    joints: list[ArticulationJoint] = field(default_factory=list)
+    """List of Joint objects forming the articulation"""
+    joints_map: dict[str, ArticulationJoint] = field(default_factory=dict)
+    """Maps joint name to the Joint object"""
+    active_joints: list[ArticulationJoint] = field(default_factory=list)
+    """List of active Joint objects, referencing elements in self.joints"""
+    active_joints_map: dict[str, ArticulationJoint] = field(default_factory=dict)
+    """Maps active joint name to the Joint object, referencing elements in self.joints"""
+
     @classmethod
     def merge(
         cls, articulations: list["Articulation"], name: str, merge_links: bool = False
@@ -53,27 +65,65 @@ class Articulation(Generic[T]):
         articulation_cls: "Articulation" = articulations[0].__class__  # type: ignore
         return articulation_cls.merge(articulations, name, merge_links)
 
-    def set_qpos(self, qpos: torch.Tensor):
-        """
-        Set the qpos of the articulation.
-        """
-        raise NotImplementedError()
+    def get_links(self):
+        return self.links
 
-    def set_qvel(self, qvel: torch.Tensor):
-        """
-        Set the qvel of the articulation.
-        """
-        raise NotImplementedError()
+    def get_name(self) -> str:
+        return self.name
 
-    def set_root_linear_velocity(self, velocity: torch.Tensor):
-        """
-        Set the root linear velocity of the articulation.
-        """
-        raise NotImplementedError()
+    def get_pose(self) -> Pose:
+        return self.pose
 
-    def set_root_angular_velocity(self, velocity: torch.Tensor):
+    # def get_qacc(self) -> numpy.ndarray[numpy.float32, _Shape[m, 1]]: ...
+    def get_qf(self):
+        return self.qf
+
+    def get_qlimits(self):
+        return self.qlimits
+
+    def get_qpos(self):
+        return self.qpos
+
+    def get_qvel(self):
+        return self.qvel
+
+    def get_root(self):
+        return self.root
+
+    def get_root_angular_velocity(self) -> torch.Tensor:
+        return self.root_angular_velocity
+
+    def get_root_linear_velocity(self) -> torch.Tensor:
+        return self.root_linear_velocity
+
+    def get_root_pose(self):
+        return self.root_pose
+
+    def set_pose(self, arg0: Pose) -> None:
+        self.pose = arg0
+
+    def set_qf(self, qf: Array) -> None:
+        self.qf = qf
+
+    def set_qpos(self, arg1: Array):
+        self.qpos = arg1
+
+    def set_qvel(self, qvel: Array) -> None:
+        self.qvel = qvel
+
+    def set_root_angular_velocity(self, velocity: Array) -> None:
+        self.root_angular_velocity = velocity
+
+    def set_root_linear_velocity(self, velocity: Array) -> None:
+        self.root_linear_velocity = velocity
+
+    def set_root_pose(self, pose: Pose) -> None:
+        self.root_pose = pose
+
+    @property
+    def linear_velocity(self) -> torch.Tensor:
         """
-        Set the root angular velocity of the articulation.
+        Get the linear velocity of the articulation.
         """
         raise NotImplementedError()
 

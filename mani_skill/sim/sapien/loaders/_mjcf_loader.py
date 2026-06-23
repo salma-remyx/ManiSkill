@@ -36,6 +36,7 @@ Notes:
 
 
 """
+
 import math
 import os
 import re
@@ -47,17 +48,21 @@ from typing import Any, Literal, Tuple, Union
 from xml.etree.ElementTree import Element
 
 import defusedxml.ElementTree as ET
-from xml.etree.ElementTree import Element
 import numpy as np
-import sapien
-from sapien import ActorBuilder, Pose
-from sapien.physx import PhysxArticulation, PhysxMaterial
-from sapien.render import RenderMaterial, RenderTexture2D
-from sapien.wrapper.articulation_builder import (
-    ArticulationBuilder,
-    LinkBuilder,
-    MimicJointRecord,
-)
+
+try:
+    import sapien
+    from sapien import ActorBuilder, Pose
+    from sapien.physx import PhysxArticulation, PhysxMaterial
+    from sapien.render import RenderMaterial, RenderTexture2D
+    from sapien.wrapper.articulation_builder import (
+        ArticulationBuilder,
+        LinkBuilder,
+        MimicJointRecord,
+    )
+except ImportError:
+    # TODO: Upgrade MJCF loader for MS4 and move it to mani_skill.sim.loaders.mjcf
+    pass
 from transforms3d import euler, quaternions
 
 from mani_skill import logger
@@ -527,9 +532,9 @@ class MJCFLoader:
         """Parse MJCF mesh data in asset"""
         # Vertex, normal, texcoord are not supported, file is required
         file = mesh.get("file")
-        assert (
-            file is not None
-        ), "Mesh file not provided. While Mujoco allows file to be optional, for loading into SAPIEN this is not optional"
+        assert file is not None, (
+            "Mesh file not provided. While Mujoco allows file to be optional, for loading into SAPIEN this is not optional"
+        )
         name = mesh.get("name", os.path.splitext(file)[0])
         self._meshes[name] = mesh
 
@@ -729,7 +734,7 @@ class MJCFLoader:
             joint_elems[0].attrib["joint"],
             joint_elems[1].attrib["joint"],
             1,
-            0
+            0,
             # joint.mimic.multiplier,
             # joint.mimic.offset,
         )

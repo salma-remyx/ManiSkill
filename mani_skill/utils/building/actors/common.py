@@ -2,11 +2,7 @@
 Common utilities for adding primitive prebuilt shapes to a scene
 """
 
-from typing import Optional, Union
-
 import numpy as np
-import sapien
-import sapien.render
 
 from mani_skill.envs.scene import ManiSkillScene
 from mani_skill.sim.builders.actor import BaseActorBuilder
@@ -74,20 +70,23 @@ def build_cube(
     name: str,
     body_type: str = "dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     builder = scene.create_actor_builder()
     if add_collision:
         builder.add_box_collision(
             half_size=[half_size] * 3,
         )
-    builder.add_box_visual(
-        half_size=[half_size] * 3,
-        material=sapien.render.RenderMaterial(
-            base_color=color,
-        ),
-    )
+    if scene.render_sim.id == "sapien":
+        import sapien.render
+
+        builder.add_box_visual(
+            half_size=[half_size] * 3,
+            material=sapien.render.RenderMaterial(
+                base_color=color,
+            ),
+        )
     return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)
 
 
@@ -98,20 +97,23 @@ def build_box(
     name: str,
     body_type: str = "dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     builder = scene.create_actor_builder()
     if add_collision:
         builder.add_box_collision(
             half_size=half_sizes,
         )
-    builder.add_box_visual(
-        half_size=half_sizes,
-        material=sapien.render.RenderMaterial(
-            base_color=color,
-        ),
-    )
+    if scene.render_sim.id == "sapien":
+        import sapien.render
+
+        builder.add_box_visual(
+            half_size=half_sizes,
+            material=sapien.render.RenderMaterial(
+                base_color=color,
+            ),
+        )
     return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)
 
 
@@ -123,8 +125,8 @@ def build_cylinder(
     name: str,
     body_type: str = "dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     builder = scene.create_actor_builder()
     if add_collision:
@@ -132,13 +134,16 @@ def build_cylinder(
             radius=radius,
             half_length=half_length,
         )
-    builder.add_cylinder_visual(
-        radius=radius,
-        half_length=half_length,
-        material=sapien.render.RenderMaterial(
-            base_color=color,
-        ),
-    )
+    if scene.render_sim.id == "sapien":
+        import sapien.render
+
+        builder.add_cylinder_visual(
+            radius=radius,
+            half_length=half_length,
+            material=sapien.render.RenderMaterial(
+                base_color=color,
+            ),
+        )
     return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)
 
 
@@ -149,20 +154,23 @@ def build_sphere(
     name: str,
     body_type: str = "dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     builder = scene.create_actor_builder()
     if add_collision:
         builder.add_sphere_collision(
             radius=radius,
         )
-    builder.add_sphere_visual(
-        radius=radius,
-        material=sapien.render.RenderMaterial(
-            base_color=color,
-        ),
-    )
+    if scene.render_sim.id == "sapien":
+        import sapien.render
+
+        builder.add_sphere_visual(
+            radius=radius,
+            material=sapien.render.RenderMaterial(
+                base_color=color,
+            ),
+        )
     return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)
 
 
@@ -173,36 +181,39 @@ def build_red_white_target(
     name: str,
     body_type: str = "dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     TARGET_RED = np.array([194, 19, 22, 255]) / 255
     builder = scene.create_actor_builder()
-    builder.add_cylinder_visual(
-        radius=radius,
-        half_length=thickness / 2,
-        material=sapien.render.RenderMaterial(base_color=TARGET_RED),
-    )
-    builder.add_cylinder_visual(
-        radius=radius * 4 / 5,
-        half_length=thickness / 2 + 1e-5,
-        material=sapien.render.RenderMaterial(base_color=[1, 1, 1, 1]),
-    )
-    builder.add_cylinder_visual(
-        radius=radius * 3 / 5,
-        half_length=thickness / 2 + 2e-5,
-        material=sapien.render.RenderMaterial(base_color=TARGET_RED),
-    )
-    builder.add_cylinder_visual(
-        radius=radius * 2 / 5,
-        half_length=thickness / 2 + 3e-5,
-        material=sapien.render.RenderMaterial(base_color=[1, 1, 1, 1]),
-    )
-    builder.add_cylinder_visual(
-        radius=radius * 1 / 5,
-        half_length=thickness / 2 + 4e-5,
-        material=sapien.render.RenderMaterial(base_color=TARGET_RED),
-    )
+    if scene.render_sim.id == "sapien":
+        import sapien.render
+
+        builder.add_cylinder_visual(
+            radius=radius,
+            half_length=thickness / 2,
+            material=sapien.render.RenderMaterial(base_color=TARGET_RED),
+        )
+        builder.add_cylinder_visual(
+            radius=radius * 4 / 5,
+            half_length=thickness / 2 + 1e-5,
+            material=sapien.render.RenderMaterial(base_color=[1, 1, 1, 1]),
+        )
+        builder.add_cylinder_visual(
+            radius=radius * 3 / 5,
+            half_length=thickness / 2 + 2e-5,
+            material=sapien.render.RenderMaterial(base_color=TARGET_RED),
+        )
+        builder.add_cylinder_visual(
+            radius=radius * 2 / 5,
+            half_length=thickness / 2 + 3e-5,
+            material=sapien.render.RenderMaterial(base_color=[1, 1, 1, 1]),
+        )
+        builder.add_cylinder_visual(
+            radius=radius * 1 / 5,
+            half_length=thickness / 2 + 4e-5,
+            material=sapien.render.RenderMaterial(base_color=TARGET_RED),
+        )
     if add_collision:
         builder.add_cylinder_collision(
             radius=radius,
@@ -236,28 +247,31 @@ def build_twocolor_peg(
     name: str,
     body_type="dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     builder = scene.create_actor_builder()
     if add_collision:
         builder.add_box_collision(
             half_size=[length, width, width],
         )
-    builder.add_box_visual(
-        pose=sapien.Pose(p=[-length / 2, 0, 0]),
-        half_size=[length / 2, width, width],
-        material=sapien.render.RenderMaterial(
-            base_color=color_1,
-        ),
-    )
-    builder.add_box_visual(
-        pose=sapien.Pose(p=[length / 2, 0, 0]),
-        half_size=[length / 2, width, width],
-        material=sapien.render.RenderMaterial(
-            base_color=color_2,
-        ),
-    )
+    if scene.render_sim.id == "sapien":
+        import sapien.render
+
+        builder.add_box_visual(
+            pose=sapien.Pose(p=[-length / 2, 0, 0]),
+            half_size=[length / 2, width, width],
+            material=sapien.render.RenderMaterial(
+                base_color=color_1,
+            ),
+        )
+        builder.add_box_visual(
+            pose=sapien.Pose(p=[length / 2, 0, 0]),
+            half_size=[length / 2, width, width],
+            material=sapien.render.RenderMaterial(
+                base_color=color_2,
+            ),
+        )
     return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)
 
 
@@ -277,8 +291,8 @@ def build_fourcolor_peg(
     color_4=[1, 1, 1, 1],
     body_type="dynamic",
     add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
+    scene_idxs: Array | None = None,
+    initial_pose: Pose | None = None,
 ):
     """
     A peg with four sections and four different colors. Useful for visualizing every possible rotation without any symmetries
@@ -288,62 +302,35 @@ def build_fourcolor_peg(
         builder.add_box_collision(
             half_size=[length, width, width],
         )
-    builder.add_box_visual(
-        pose=sapien.Pose(p=[-length / 2, -width / 2, 0]),
-        half_size=[length / 2, width / 2, width],
-        material=sapien.render.RenderMaterial(
-            base_color=color_1,
-        ),
-    )
-    builder.add_box_visual(
-        pose=sapien.Pose(p=[length / 2, -width / 2, 0]),
-        half_size=[length / 2, width / 2, width],
-        material=sapien.render.RenderMaterial(
-            base_color=color_2,
-        ),
-    )
-    builder.add_box_visual(
-        pose=sapien.Pose(p=[-length / 2, width / 2, 0]),
-        half_size=[length / 2, width / 2, width],
-        material=sapien.render.RenderMaterial(
-            base_color=color_3,
-        ),
-    )
-    builder.add_box_visual(
-        pose=sapien.Pose(p=[length / 2, width / 2, 0]),
-        half_size=[length / 2, width / 2, width],
-        material=sapien.render.RenderMaterial(
-            base_color=color_4,
-        ),
-    )
-    return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)
+    if scene.render_sim.id == "sapien":
+        import sapien.render
 
-
-def build_colorful_cube(
-    scene: ManiSkillScene,
-    half_size: float,
-    color,
-    name: str,
-    body_type: str = "dynamic",
-    add_collision: bool = True,
-    scene_idxs: Optional[Array] = None,
-    initial_pose: Optional[Union[Pose, sapien.Pose]] = None,
-):
-    builder = scene.create_actor_builder()
-
-    if add_collision:
-        builder._mass = 0.1
-        cube_material = sapien.pysapien.physx.PhysxMaterial(
-            static_friction=5, dynamic_friction=3, restitution=0
+        builder.add_box_visual(
+            pose=sapien.Pose(p=[-length / 2, -width / 2, 0]),
+            half_size=[length / 2, width / 2, width],
+            material=sapien.render.RenderMaterial(
+                base_color=color_1,
+            ),
         )
-        builder.add_box_collision(
-            half_size=[half_size] * 3,
-            material=cube_material,
+        builder.add_box_visual(
+            pose=sapien.Pose(p=[length / 2, -width / 2, 0]),
+            half_size=[length / 2, width / 2, width],
+            material=sapien.render.RenderMaterial(
+                base_color=color_2,
+            ),
         )
-    builder.add_box_visual(
-        half_size=[half_size] * 3,
-        material=sapien.render.RenderMaterial(
-            base_color=color,
-        ),
-    )
+        builder.add_box_visual(
+            pose=sapien.Pose(p=[-length / 2, width / 2, 0]),
+            half_size=[length / 2, width / 2, width],
+            material=sapien.render.RenderMaterial(
+                base_color=color_3,
+            ),
+        )
+        builder.add_box_visual(
+            pose=sapien.Pose(p=[length / 2, width / 2, 0]),
+            half_size=[length / 2, width / 2, width],
+            material=sapien.render.RenderMaterial(
+                base_color=color_4,
+            ),
+        )
     return _build_by_type(builder, name, body_type, scene_idxs, initial_pose)

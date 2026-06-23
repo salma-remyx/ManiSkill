@@ -11,7 +11,7 @@ from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import sapien_utils
 from mani_skill.utils.building import actors
-from mani_skill.utils.building.actor_builder import ActorBuilder
+from mani_skill.sim.builders.actor import BaseActorBuilder
 from mani_skill.utils.io_utils import load_json
 from mani_skill.utils.registration import register_env
 from mani_skill.utils.scene_builder.table import TableSceneBuilder
@@ -95,7 +95,7 @@ class PickClutterEnv(BaseEnv):
             "render_camera", pose=pose, width=512, height=512, fov=1, near=0.01, far=100
         )
 
-    def _load_model(self, model_id: str) -> ActorBuilder:
+    def _load_model(self, model_id: str) -> BaseActorBuilder:
         raise NotImplementedError()
 
     def _load_agent(self, options: dict):

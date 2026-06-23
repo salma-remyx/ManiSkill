@@ -1,7 +1,6 @@
 from copy import deepcopy
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill import PACKAGE_ASSET_DIR
@@ -41,7 +40,7 @@ class Fetch(BaseAgent):
 
     keyframes = dict(
         rest=Keyframe(
-            pose=sapien.Pose(),
+            pose=Pose.create(),
             qpos=np.array(
                 [
                     0,
@@ -398,6 +397,8 @@ class Fetch(BaseAgent):
     @staticmethod
     def build_grasp_pose(approaching, closing, center):
         """Build a grasp pose (panda_hand_tcp)."""
+        import sapien  # TODO: remove the sapien dependency of this old method
+
         assert np.abs(1 - np.linalg.norm(approaching)) < 1e-3
         assert np.abs(1 - np.linalg.norm(closing)) < 1e-3
         assert np.abs(approaching @ closing) <= 1e-3

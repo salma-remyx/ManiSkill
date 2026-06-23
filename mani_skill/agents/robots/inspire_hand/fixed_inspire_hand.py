@@ -1,7 +1,6 @@
 from copy import deepcopy
 
 import numpy as np
-import sapien
 from transforms3d.euler import euler2quat
 
 from mani_skill import PACKAGE_ASSET_DIR
@@ -12,6 +11,7 @@ from mani_skill.agents.robots.inspire_hand.floating_inspire_hand import (
     FloatingInspireHandLeft,
     FloatingInspireHandRight,
 )
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent()
@@ -39,7 +39,7 @@ class FixedInspireHandRight(FloatingInspireHandRight):
                     -0.07234851,
                 ]
             ],
-            pose=sapien.Pose(p=[0, 0, 0.4], q=euler2quat(0, 0, -np.pi / 2)),
+            pose=Pose.create_from_pq(p=[0, 0, 0.4], q=euler2quat(0, 0, -np.pi / 2)),
         ),
         palm_up=Keyframe(
             qpos=[
@@ -60,7 +60,9 @@ class FixedInspireHandRight(FloatingInspireHandRight):
                     -0.07234851,
                 ]
             ],
-            pose=sapien.Pose(p=[0, 0, 0.4], q=euler2quat(np.pi / 2, 0, -np.pi / 2)),
+            pose=Pose.create_from_pq(
+                p=[0, 0, 0.4], q=euler2quat(np.pi / 2, 0, -np.pi / 2)
+            ),
         ),
     )
 
@@ -155,7 +157,7 @@ class FixedInspireHandLeft(FloatingInspireHandLeft):
                     -0.07234851,
                 ]
             ],
-            pose=sapien.Pose(p=[0, 0, 0.4], q=euler2quat(0, 0, -np.pi / 2)),
+            pose=Pose.create_from_pq(p=[0, 0, 0.4], q=euler2quat(0, 0, -np.pi / 2)),
         ),
         palm_up=Keyframe(
             qpos=[
@@ -176,7 +178,9 @@ class FixedInspireHandLeft(FloatingInspireHandLeft):
                     -0.07234851,
                 ]
             ],
-            pose=sapien.Pose(p=[0, 0, 0.4], q=euler2quat(np.pi / 2, 0, -np.pi / 2)),
+            pose=Pose.create_from_pq(
+                p=[0, 0, 0.4], q=euler2quat(np.pi / 2, 0, -np.pi / 2)
+            ),
         ),
     )
 

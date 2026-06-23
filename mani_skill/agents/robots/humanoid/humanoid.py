@@ -1,10 +1,10 @@
 import numpy as np
-import sapien
 
 from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill.agents.base_agent import BaseAgent, Keyframe
 from mani_skill.agents.controllers import *
 from mani_skill.agents.registration import register_agent
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent()
@@ -41,7 +41,7 @@ class Humanoid(BaseAgent):
                     0.0,
                 ]
             ),
-            pose=sapien.Pose(p=[0, 0, 1.13]),
+            pose=Pose.create_from_pq(p=[0, 0, 1.13]),
         )
     )
 

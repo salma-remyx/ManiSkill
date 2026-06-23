@@ -1,8 +1,6 @@
 from typing import Sequence
 
 import numpy as np
-import sapien
-import sapien.physx as physx
 
 from mani_skill.envs.scene import ManiSkillScene
 
@@ -15,6 +13,11 @@ def build_robel_valve(
     capsule_radius_scale: float = 1.0,
     scene_idxs=None,
 ):
+    import sapien
+    import sapien.physx as physx
+    # TODO: decide if we keep this utility or not, its for an old environment and
+    # has a lot of SAPIEN specific code
+
     # Size and geometry of valve are based on the original setting of Robel benchmark, unit: m
     # Ref: https://github.com/google-research/robel
     capsule_height = 0.039854

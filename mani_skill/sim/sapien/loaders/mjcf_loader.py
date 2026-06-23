@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypedDict
 
-from mani_skill.utils.building.actor_builder import ActorBuilder
-from mani_skill.utils.building.articulation_builder import ArticulationBuilder
+from mani_skill.sim.builders.actor import BaseActorBuilder
+from mani_skill.sim.builders.articulation import BaseArticulationBuilder
 from mani_skill.utils.structs import Actor, Articulation
 
 if TYPE_CHECKING:
@@ -13,8 +13,8 @@ from ._mjcf_loader import MJCFLoader as SAPIENMJCFLoader
 
 
 class ParsedMJCFData(TypedDict):
-    articulation_builders: list[ArticulationBuilder]
-    actor_builders: list[ActorBuilder]
+    articulation_builders: list[BaseArticulationBuilder]
+    actor_builders: list[BaseActorBuilder]
     cameras: list[Any]
 
 

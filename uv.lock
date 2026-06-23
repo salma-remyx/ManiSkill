@@ -1009,6 +1009,7 @@ dependencies = [
     { name = "pytorch-kinematics" },
     { name = "torch" },
     { name = "tqdm" },
+    { name = "transforms3d" },
     { name = "trimesh" },
     { name = "tyro" },
 ]
@@ -1054,6 +1055,7 @@ requires-dist = [
     { name = "sapien", marker = "extra == 'sapien'", specifier = ">=3.0.3" },
     { name = "torch", specifier = ">=2.7.0" },
     { name = "tqdm", specifier = ">=4.68.2" },
+    { name = "transforms3d", specifier = ">=0.4.2" },
     { name = "trimesh", specifier = ">=4.12.2" },
     { name = "tyro", specifier = ">=1.0.13" },
 ]

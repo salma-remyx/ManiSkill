@@ -1,7 +1,6 @@
 from typing import Union, cast
 
 import numpy as np
-import sapien
 from transforms3d.euler import euler2quat
 
 from mani_skill import ASSET_DIR
@@ -10,6 +9,7 @@ from mani_skill.agents.controllers import *
 from mani_skill.agents.controllers.base_controller import ControllerConfig
 from mani_skill.agents.registration import register_agent
 from mani_skill.utils.structs.link import Link
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent(asset_download_ids=["robotiq_2f"])
@@ -33,15 +33,15 @@ class FloatingRobotiq2F85Gripper(BaseAgent):
     keyframes = dict(
         open_facing_down=Keyframe(
             qpos=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            pose=sapien.Pose(p=[0.0, 0.0, 0.5], q=euler2quat(np.pi, 0, 0)),
+            pose=Pose.create_from_pq(p=[0.0, 0.0, 0.5], q=euler2quat(np.pi, 0, 0)),
         ),
         open_facing_up=Keyframe(
             qpos=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            pose=sapien.Pose(p=[0.0, 0.0, 0.5]),
+            pose=Pose.create_from_pq(p=[0.0, 0.0, 0.5]),
         ),
         open_facing_side=Keyframe(
             qpos=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            pose=sapien.Pose(p=[0.0, 0.0, 0.5], q=[0.7071, 0, 0.7071, 0]),
+            pose=Pose.create_from_pq(p=[0.0, 0.0, 0.5], q=[0.7071, 0, 0.7071, 0]),
         ),
     )
     root_joint_names = [

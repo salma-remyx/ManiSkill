@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
-import sapien
 import torch
 import transforms3d
 
@@ -18,6 +17,7 @@ from mani_skill.utils import common
 from mani_skill.utils.building import actors
 from mani_skill.utils.scene_builder.replicacad import ReplicaCADSceneBuilder
 from mani_skill.utils.structs import Actor, Articulation
+from mani_skill.utils.structs.pose import Pose
 
 DEFAULT_HIDDEN_POS = [-10_000] * 3
 
@@ -26,7 +26,7 @@ class ReplicaCADRearrangeSceneBuilder(ReplicaCADSceneBuilder):
     task_names: list[str] = ["set_table:train"]
 
     # init configs for Rearrange stasks are default_object_poses for each object type
-    init_configs: list[list[dict[str, list[sapien.Pose]]]] = None
+    init_configs: list[list[dict[str, list[Pose]]]] = None
 
     def __init__(self, env):
         # the Habitat Rearrange tasks build on the base ReplicaCAD scenes by creating episode configs
@@ -113,17 +113,17 @@ class ReplicaCADRearrangeSceneBuilder(ReplicaCADSceneBuilder):
         q = transforms3d.quaternions.axangle2quat(
             np.array([1, 0, 0]), theta=np.deg2rad(90)
         )
-        world_transform = sapien.Pose(q=q).inv()
-        obj_transform = sapien.Pose(q=q, p=[0, 0, 0.01])
+        world_transform = Pose.create_from_pq(q=q).inv()
+        obj_transform = Pose.create_from_pq(q=q, p=[0, 0, 0.01])
 
         # self.rcad_to_rearrange_configs: which rearrange episode configs use each rcad config
         # default_object_poses: default poses for ycb objects from each rearrange episode config
         self.rcad_to_rearrange_configs: dict[str, list[str]] = dict()
-        default_object_poses: dict[str, dict[str, list[sapien.Pose]]] = dict()
+        default_object_poses: dict[str, dict[str, list[Pose]]] = dict()
         if init_config_names is None:
             init_config_names = self._rearrange_configs
         for rc in init_config_names:
-            objects: dict[str, list[sapien.Pose]] = defaultdict(list)
+            objects: dict[str, list[Pose]] = defaultdict(list)
 
             with open(
                 osp.join(
@@ -366,7 +366,7 @@ class ReplicaCADRearrangeSceneBuilder(ReplicaCADSceneBuilder):
     def hide_actor(self, actor: Actor):
         actor.set_pose(self._default_hidden_poses[actor])
 
-    def show_actor(self, actor: Actor, pose: sapien.Pose):
+    def show_actor(self, actor: Actor, pose: Pose):
         actor.set_pose(pose)
 
     @cached_property

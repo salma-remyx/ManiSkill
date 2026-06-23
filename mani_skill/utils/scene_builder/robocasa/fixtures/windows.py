@@ -1,11 +1,11 @@
 import numpy as np
 import sapien
-import sapien.physx as physx
 from transforms3d.euler import euler2quat
 
 from mani_skill.envs.scene import ManiSkillScene
-from mani_skill.utils.building.actor_builder import ActorBuilder
+from mani_skill.sim.builders.actor import BaseActorBuilder
 from mani_skill.utils.scene_builder.robocasa.utils.scene_utils import ROBOCASA_ASSET_DIR
+from mani_skill.utils.structs.pose import Pose
 
 
 class Window:
@@ -51,7 +51,7 @@ class Window:
     ):
         self.scene = scene
         self.name = name
-        self.objects: list[ActorBuilder] = []
+        self.objects: list[BaseActorBuilder] = []
         self.euler = [0, 0, 0]
 
         self.size = size
@@ -137,7 +137,7 @@ class Window:
 
     def build(self, scene_idxs: list[int]):
         self.actor_builder.set_scene_idxs(scene_idxs)
-        self.actor_builder.initial_pose = sapien.Pose(
+        self.actor_builder.initial_pose = Pose.create_from_pq(
             p=np.array(self.pos), q=euler2quat(*self.euler)
         )
         self.actor = self.actor_builder.build_static(

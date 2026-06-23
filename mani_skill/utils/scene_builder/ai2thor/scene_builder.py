@@ -9,8 +9,6 @@ from pathlib import Path
 from typing import Tuple, Union
 
 import numpy as np
-import sapien
-import sapien.core as sapien
 import torch
 import transforms3d
 from tqdm import tqdm
@@ -21,7 +19,6 @@ from mani_skill.agents.robots.fetch import (
     FETCH_WHEELS_COLLISION_BIT,
     Fetch,
 )
-from mani_skill.sim.sapien.structs.actor import SapienActor
 from mani_skill.utils.scene_builder import SceneBuilder
 from mani_skill.utils.structs import Actor, Articulation, Pose
 
@@ -126,7 +123,7 @@ class AI2THORBaseSceneBuilder(SceneBuilder):
         self.scene_objects: dict[str, Actor] = dict()
         self.movable_objects: dict[str, Actor] = dict()
         self.articulations: dict[str, Articulation] = dict()
-        self._default_object_poses: list[Tuple[Actor, sapien.Pose]] = []
+        self._default_object_poses: list[Tuple[Actor, Pose]] = []
 
         # keep track of background objects separately as we need to disable mobile robot collisions
         # note that we will create a merged actor using these objects to represent the bg
@@ -161,11 +158,11 @@ class AI2THORBaseSceneBuilder(SceneBuilder):
                         np.array([0, -1, 0]), theta=np.deg2rad(90)
                     ),
                 )
-            bg_pose = sapien.Pose(q=bg_q)
+            bg_pose = Pose.create(q=bg_q)
             builder.add_visual_from_file(bg_path, pose=bg_pose)
             builder.add_nonconvex_collision_from_file(bg_path, pose=bg_pose)
             builder.set_scene_idxs(env_idx)
-            builder.initial_pose = sapien.Pose()
+            builder.initial_pose = Pose.create()
             bg = builder.build_static(name=f"{unique_id}_scene_background")
             for i, env_num in enumerate(env_idx):
                 bgs[env_num] = bg._objs[i]
@@ -204,7 +201,7 @@ class AI2THORBaseSceneBuilder(SceneBuilder):
                         -object["translation"][2],
                         object["translation"][1] + 0,
                     ]
-                    pose = sapien.Pose(p=position, q=q)
+                    pose = Pose.create_from_pq(p=position, q=q)
                     builder.add_visual_from_file(str(model_path))
                     builder.add_nonconvex_collision_from_file(str(model_path))
                     builder.initial_pose = pose
@@ -221,7 +218,7 @@ class AI2THORBaseSceneBuilder(SceneBuilder):
                         str(model_path),
                         decomposition=convex_decomposition,
                     )
-                    pose = sapien.Pose(p=position, q=q)
+                    pose = Pose.create_from_pq(p=position, q=q)
                     builder.initial_pose = pose
                     builder.set_scene_idxs(env_idx)
                     actor = builder.build(name=f"{unique_id}_{actor_name}")
@@ -245,6 +242,8 @@ class AI2THORBaseSceneBuilder(SceneBuilder):
         self.scene.render_sim.set_ambient_light([0.3, 0.3, 0.3])
 
         # merge actors into one
+        from mani_skill.sim.sapien.structs.actor import SapienActor
+
         self.bg = SapienActor.create_from_entities(
             bgs,
             sim=self.scene.physics_sim,

@@ -1,16 +1,14 @@
 from copy import deepcopy
-from typing import Tuple, cast
+from typing import cast
 
 import numpy as np
-import sapien
-import sapien.physx as physx
 import torch
 
 from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill.agents.base_agent import BaseAgent, Keyframe
 from mani_skill.agents.controllers import *
 from mani_skill.agents.registration import register_agent
-from mani_skill.utils import sapien_utils
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent()
@@ -23,7 +21,7 @@ class PandaStick(BaseAgent):
             qpos=np.array(
                 [0.0, np.pi / 8, 0, -np.pi * 5 / 8, 0, np.pi * 3 / 4, np.pi / 4]
             ),
-            pose=sapien.Pose(),
+            pose=Pose.create_from_pq(),
         )
     )
 
@@ -159,14 +157,8 @@ class PandaStick(BaseAgent):
         return deepcopy_dict(controller_configs)
 
     def _after_init(self):
-        self.tcp = sapien_utils.get_obj_by_name(
-            self.robot.get_links(), self.ee_link_name
-        )
-
-        self.queries: dict[
-            str, Tuple[physx.PhysxGpuContactPairImpulseQuery, Tuple[int]]
-        ] = dict()
+        self.tcp = self.robot.links_map[self.ee_link_name]
 
     def is_static(self, threshold: float = 0.2):
-        qvel = self.robot.get_qvel()[..., :-2]
+        qvel = self.robot.linear_velocity[..., :-2]
         return torch.max(torch.abs(qvel), 1)[0] <= threshold

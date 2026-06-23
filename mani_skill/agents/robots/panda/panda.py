@@ -2,7 +2,6 @@ from copy import deepcopy
 from typing import cast
 
 import numpy as np
-import sapien
 import torch
 
 from mani_skill import PACKAGE_ASSET_DIR
@@ -11,6 +10,7 @@ from mani_skill.agents.controllers import *
 from mani_skill.agents.registration import register_agent
 from mani_skill.utils import common
 from mani_skill.utils.structs.actor import Actor
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent()
@@ -46,7 +46,7 @@ class Panda(BaseAgent):
                     0.04,
                 ]
             ),
-            pose=sapien.Pose(),
+            pose=Pose.create_from_pq(),
         )
     )
 
@@ -267,6 +267,8 @@ class Panda(BaseAgent):
     @staticmethod
     def build_grasp_pose(approaching, closing, center):
         """Build a grasp pose (panda_hand_tcp)."""
+        import sapien  # TODO: remove the sapien dependency of this old method
+
         assert np.abs(1 - np.linalg.norm(approaching)) < 1e-3
         assert np.abs(1 - np.linalg.norm(closing)) < 1e-3
         assert np.abs(approaching @ closing) <= 1e-3

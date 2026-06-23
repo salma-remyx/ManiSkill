@@ -13,7 +13,8 @@ from mani_skill.agents.controllers.pd_joint_pos import PDJointPosControllerConfi
 from mani_skill.sim.sensors.base_sensor import BaseSensor, BaseSensorConfig
 from mani_skill.utils import assets, download_asset
 from mani_skill.utils.logging_utils import logger
-from mani_skill.utils.structs import Actor, Array, Articulation
+from mani_skill.utils.structs import Actor, Array
+from mani_skill.utils.structs.articulation import Articulation
 from mani_skill.utils.structs.pose import Pose
 
 from .controllers.base_controller import (

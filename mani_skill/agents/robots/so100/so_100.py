@@ -1,7 +1,6 @@
 import copy
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -31,11 +30,11 @@ class SO100(BaseAgent):
     keyframes = dict(
         rest=Keyframe(
             qpos=np.array([0, -1.5708, 1.5708, 0.66, 0, -1.1]),
-            pose=sapien.Pose(q=euler2quat(0, 0, np.pi / 2)),
+            pose=Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2)),
         ),
         zero=Keyframe(
             qpos=np.array([0.0] * 6),
-            pose=sapien.Pose(q=euler2quat(0, 0, np.pi / 2)),
+            pose=Pose.create_from_pq(q=euler2quat(0, 0, np.pi / 2)),
         ),
     )
 

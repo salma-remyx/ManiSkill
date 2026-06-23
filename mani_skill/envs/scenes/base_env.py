@@ -1,7 +1,6 @@
 from typing import Any, Union
 
 import numpy as np
-import sapien as sapien
 import torch
 
 from mani_skill.agents.robots import Fetch, Panda

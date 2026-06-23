@@ -1,13 +1,12 @@
 from typing import cast
 
 import numpy as np
-import sapien
 
 from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill.agents.base_agent import BaseAgent, Keyframe
 from mani_skill.agents.controllers import *
 from mani_skill.agents.registration import register_agent
-from mani_skill.utils import sapien_utils
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent()
@@ -29,13 +28,15 @@ class FloatingPandaGripper(BaseAgent):
     )
     keyframes = dict(
         open_facing_down=Keyframe(
-            qpos=[0, 0, 0, 0, np.pi, 0, 0.04, 0.04], pose=sapien.Pose(p=[0, 0, 0.5])
+            qpos=[0, 0, 0, 0, np.pi, 0, 0.04, 0.04],
+            pose=Pose.create_from_pq(p=[0, 0, 0.5]),
         ),
         open_facing_up=Keyframe(
-            qpos=[0, 0, 0, 0, 0, 0, 0.04, 0.04], pose=sapien.Pose(p=[0, 0, 0.5])
+            qpos=[0, 0, 0, 0, 0, 0, 0.04, 0.04], pose=Pose.create_from_pq(p=[0, 0, 0.5])
         ),
         open_facing_side=Keyframe(
-            qpos=[0, 0, 0, 0, np.pi / 2, 0, 0.04, 0.04], pose=sapien.Pose(p=[0, 0, 0.5])
+            qpos=[0, 0, 0, 0, np.pi / 2, 0, 0.04, 0.04],
+            pose=Pose.create_from_pq(p=[0, 0, 0.5]),
         ),
     )
     root_joint_names = [
@@ -123,18 +124,8 @@ class FloatingPandaGripper(BaseAgent):
         return []
 
     def _after_init(self):
-        self.finger1_link = sapien_utils.get_obj_by_name(
-            self.robot.get_links(), "panda_leftfinger"
-        )
-        self.finger2_link = sapien_utils.get_obj_by_name(
-            self.robot.get_links(), "panda_rightfinger"
-        )
-        self.finger1pad_link = sapien_utils.get_obj_by_name(
-            self.robot.get_links(), "panda_leftfinger_pad"
-        )
-        self.finger2pad_link = sapien_utils.get_obj_by_name(
-            self.robot.get_links(), "panda_rightfinger_pad"
-        )
-        self.tcp = sapien_utils.get_obj_by_name(
-            self.robot.get_links(), self.ee_link_name
-        )
+        self.finger1_link = self.robot.links_map["panda_leftfinger"]
+        self.finger2_link = self.robot.links_map["panda_rightfinger"]
+        self.finger1pad_link = self.robot.links_map["panda_leftfinger_pad"]
+        self.finger2pad_link = self.robot.links_map["panda_rightfinger_pad"]
+        self.tcp = self.robot.links_map[self.ee_link_name]

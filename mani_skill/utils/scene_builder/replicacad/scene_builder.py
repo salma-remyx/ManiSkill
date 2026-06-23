@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Tuple, Union
 
 import numpy as np
-import sapien
 import torch
 import transforms3d
 import trimesh
@@ -22,10 +21,10 @@ from mani_skill.agents.robots.fetch import (
     FETCH_BASE_COLLISION_BIT,
     FETCH_WHEELS_COLLISION_BIT,
 )
-from mani_skill.sim.sapien.structs.actor import SapienActor
 from mani_skill.utils.scene_builder import SceneBuilder
 from mani_skill.utils.scene_builder.registration import register_scene_builder
 from mani_skill.utils.structs import Actor, Articulation
+from mani_skill.utils.structs.pose import Pose
 
 DATASET_CONFIG_DIR = osp.join(osp.dirname(__file__), "metadata")
 
@@ -34,7 +33,7 @@ IGNORE_FETCH_COLLISION_STRS = ["mat", "rug", "carpet"]
 
 @register_scene_builder("ReplicaCAD")
 class ReplicaCADSceneBuilder(SceneBuilder):
-    robot_initial_pose = sapien.Pose(
+    robot_initial_pose = Pose.create_from_pq(
         p=[-1, 0, 0.02]
     )  # generally a safe initial spawn pose for the Fetch robot
 
@@ -122,7 +121,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
             q = transforms3d.quaternions.axangle2quat(
                 np.array([1, 0, 0]), theta=np.deg2rad(90)
             )
-            bg_pose = sapien.Pose(q=q)
+            bg_pose = Pose.create_from_pq(q=q)
 
             # When creating objects that do not need to be moved ever, you must provide the pose of the object ahead of time
             # and use builder.build_static. Objects such as the scene background (also called a stage) fits in this category
@@ -158,7 +157,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
                 pos = obj_meta["translation"]
                 rot = obj_meta["rotation"]
                 # left multiplying by the offset quaternion we used for the stage/scene background as all assets in ReplicaCAD are rotated by 90 degrees
-                pose = sapien.Pose(q=q) * sapien.Pose(pos, rot)
+                pose = Pose.create_from_pq(q=q) * Pose.create_from_pq(pos, rot)
 
                 actor_name = f"{obj_meta['template_name']}-{obj_num}"
                 # Neatly for simulation, ReplicaCAD specifies if an object is meant to be simulated as dynamic (can be moved like pots) or static (must stay still, like kitchen counters)
@@ -224,7 +223,7 @@ class ReplicaCADSceneBuilder(SceneBuilder):
                 if "uniform_scale" in articulated_meta:
                     urdf_loader.scale = articulated_meta["uniform_scale"]
                 builder = urdf_loader.parse(urdf_path)["articulation_builders"][0]
-                pose = sapien.Pose(q=q) * sapien.Pose(pos, rot)
+                pose = Pose.create_from_pq(q=q) * Pose.create_from_pq(pos, rot)
                 builder.initial_pose = pose
                 builder.set_scene_idxs(env_idx)
                 articulation = builder.build(urdf_loader.name)
@@ -283,6 +282,8 @@ class ReplicaCADSceneBuilder(SceneBuilder):
         self.scene.render_sim.add_point_light([3.14, 3.24, 3], color=color)
 
         # merge actors into one
+        from mani_skill.sim.sapien.structs.actor import SapienActor
+
         self.bg = SapienActor.create_from_entities(
             bgs,
             sim=self.scene.physics_sim,

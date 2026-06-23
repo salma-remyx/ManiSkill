@@ -645,100 +645,10 @@ class SapienArticulation(SapienBaseStruct[physx.PhysxArticulation], Articulation
                 self._objs[0].get_link_incoming_joint_forces()[None, :]
             )
 
-    def get_links(self):
-        return self.links
-
-    def get_name(self) -> str:
-        return self.name
-
-    def get_pose(self) -> Pose:
-        return self.pose
-
-    # def get_qacc(self) -> numpy.ndarray[numpy.float32, _Shape[m, 1]]: ...
-    def get_qf(self):
-        return self.qf
-
-    # def get_qlimit(self):
-    # removed this function from ManiSkill Articulation wrapper API as it is redundant
-    #     """
-    #     same as get_qlimits
-    #     """
-    #     return self.qlimits
-
-    def get_qlimits(self):
-        return self.qlimits
-
-    def get_qpos(self):
-        return self.qpos
-
-    def get_qvel(self):
-        return self.qvel
-
-    def get_root(self):
-        return self.root
-
-    def get_root_angular_velocity(self) -> torch.Tensor:
-        return self.root_angular_velocity
-
-    def get_root_linear_velocity(self) -> torch.Tensor:
-        return self.root_linear_velocity
-
-    def get_root_pose(self):
-        return self.root_pose
-
-    # def set_name(self, arg0: str) -> None: ...
-    def set_pose(self, arg0: Union[Pose, sapien.Pose]) -> None:
-        self.pose = arg0
-
-    # def set_qacc(self, qacc: numpy.ndarray[numpy.float32, _Shape[m, 1]]) -> None: ...
-    def set_qf(self, qf: Array) -> None:
-        self.qf = qf
-
-    def set_qpos(self, arg1: Array):
-        self.qpos = arg1
-
-    def set_qvel(self, qvel: Array) -> None:
-        self.qvel = qvel
-
-    def set_root_angular_velocity(self, velocity: Array) -> None:
-        self.root_angular_velocity = velocity
-
-    def set_root_linear_velocity(self, velocity: Array) -> None:
-        self.root_linear_velocity = velocity
-
-    def set_root_pose(self, pose: Pose | sapien.Pose) -> None:
-        self.root_pose = pose
-
-    # @property
-    # def active_joints(self):
-    #     return self._articulations[0].active_joints
-
     @cached_property
     def dof(self) -> torch.tensor:
         return torch.tensor([obj.dof for obj in self._objs], device=self.device)
 
-    # @property
-    # def gpu_index(self) -> int:
-    #     """
-    #     :type: int
-    #     """
-    # @property
-    # def joints(self):
-    #     return self._articulations[0].joints
-
-    # @property
-    # def links(self) -> list[PhysxArticulationLinkComponent]:
-    #     """
-    #     :type: list[PhysxArticulationLinkComponent]
-    #     """
-    # @property
-    # def name(self) -> str:
-    #     """
-    #     :type: str
-    #     """
-    # @name.setter
-    # def name(self, arg1: str) -> None:
-    #     pass
     @property
     def pose(self) -> Pose:
         return self.root_pose
@@ -894,7 +804,7 @@ class SapienArticulation(SapienBaseStruct[physx.PhysxArticulation], Articulation
     # -------------------------------------------------------------------------- #
     def create_pinocchio_model(self):
         # NOTE (stao): This is available but not typed in SAPIEN
-        if self.scene.gpu_sim_enabled:
+        if self.sim.gpu_sim_enabled:
             raise NotImplementedError(
                 "Cannot create a pinocchio model when GPU is enabled."
             )

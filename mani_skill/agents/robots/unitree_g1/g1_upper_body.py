@@ -1,7 +1,6 @@
 from typing import cast
 
 import numpy as np
-import sapien
 import torch
 from transforms3d.euler import euler2quat
 
@@ -12,6 +11,7 @@ from mani_skill.agents.registration import register_agent
 from mani_skill.sim.sensors.camera import CameraConfig
 from mani_skill.utils import common
 from mani_skill.utils.structs.actor import Actor
+from mani_skill.utils.structs.pose import Pose
 
 
 @register_agent()
@@ -50,7 +50,7 @@ class UnitreeG1UpperBody(BaseAgent):
 
     keyframes = dict(
         standing=Keyframe(
-            pose=sapien.Pose(p=[0, 0, 0.755]),
+            pose=Pose.create_from_pq(p=[0, 0, 0.755]),
             qpos=np.array([0.0] * (25)),
         )
     )
@@ -299,7 +299,9 @@ class UnitreeG1UpperBodyWithHeadCamera(UnitreeG1UpperBody):
         return [
             CameraConfig(
                 "head_camera",
-                pose=sapien.Pose(p=[0.05, 0, 0.46], q=euler2quat(0, np.pi / 6, 0)),
+                pose=Pose.create_from_pq(
+                    p=[0.05, 0, 0.46], q=euler2quat(0, np.pi / 6, 0)
+                ),
                 width=128,
                 height=128,
                 near=0.01,
@@ -317,7 +319,7 @@ class UnitreeG1UpperBodyRightArm(UnitreeG1UpperBody):
 
     keyframes = dict(
         standing=Keyframe(
-            pose=sapien.Pose(p=[0, 0, 0.755]),
+            pose=Pose.create_from_pq(p=[0, 0, 0.755]),
             qpos=np.array([0.0] * (24)) * 1,
         )
     )

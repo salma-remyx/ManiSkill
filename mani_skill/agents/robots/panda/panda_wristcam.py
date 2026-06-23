@@ -1,9 +1,9 @@
 import numpy as np
-import sapien
 
 from mani_skill import PACKAGE_ASSET_DIR
 from mani_skill.agents.registration import register_agent
 from mani_skill.sim.sensors.camera import CameraConfig
+from mani_skill.utils.structs.pose import Pose
 
 from .panda import Panda
 
@@ -20,7 +20,7 @@ class PandaWristCam(Panda):
         return [
             CameraConfig(
                 uid="hand_camera",
-                pose=sapien.Pose(p=[0, 0, 0], q=[1, 0, 0, 0]),
+                pose=Pose.create_from_pq(p=[0, 0, 0], q=[1, 0, 0, 0]),
                 width=128,
                 height=128,
                 fov=np.pi / 2,
