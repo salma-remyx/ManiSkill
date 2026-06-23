@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-import sapien
 import torch
 
 from mani_skill.envs.utils.system.backend import BackendInfo
@@ -12,7 +11,6 @@ from mani_skill.sim.sensors.camera import Camera
 from mani_skill.utils.structs.actor import Actor
 from mani_skill.utils.structs.articulation import Articulation
 from mani_skill.utils.structs.link import Link
-from mani_skill.utils.structs.pose import Pose
 from mani_skill.utils.structs.types import Device, SimConfig
 
 if TYPE_CHECKING:
@@ -207,20 +205,6 @@ class ManiSkillScene:
         return [
             c.articulation for c in self.px.articulation_link_components if c.is_root
         ]
-
-    def create_drive(
-        self,
-        body0: Union[Actor, Link],
-        pose0: Union[sapien.Pose, Pose],
-        body1: Union[Actor, Link],
-        pose1: Union[sapien.Pose, Pose],
-    ):
-        from mani_skill.sim.sapien.structs.drive import Drive
-
-        # body0 and body1 should be in parallel.
-        return Drive.create_from_actors_or_links(
-            self.physics_sim, body0, pose0, body1, pose1, body0._scene_idxs
-        )
 
     # def create_connection(
     #     self,

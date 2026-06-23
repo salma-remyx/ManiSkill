@@ -387,6 +387,20 @@ class SapienSim(BaseSim):
                 self.sub_scenes[0].remove_entity(e)
             self.articulations.pop(articulation.name)
 
+    def create_drive(
+        self,
+        body0: SapienActor | SapienLink,
+        pose0: sapien.Pose | Pose,
+        body1: SapienActor | SapienLink,
+        pose1: sapien.Pose | Pose,
+    ):
+        from mani_skill.sim.sapien.structs.drive import Drive
+
+        # body0 and body1 should be in parallel.
+        return Drive.create_from_actors_or_links(
+            self, body0, pose0, body1, pose1, body0._scene_idxs
+        )
+
     @property
     def ambient_light(self):
         return self.sub_scenes[0].ambient_light
