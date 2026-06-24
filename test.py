@@ -1,16 +1,21 @@
 import newton
 import warp as wp
 
+import numpy as np
+import torch
 
 def main():
     wp.init()
     sim_device = wp.get_device("cpu")
     model_builder = newton.ModelBuilder()
     model_builder.add_shape_plane()
+    newton.solvers.SolverMuJoCo.register_custom_attributes(model_builder)
     model_builder.add_urdf(
-        source="/home/stao/work/maniskill/ManiSkill/mani_skill/assets/robots/panda/panda_v2.urdf",
+        newton.utils.download_asset("franka_emika_panda") / "urdf/fr3_franka_hand.urdf",
+        # source="/home/stao/work/maniskill/ManiSkill/mani_skill/assets/robots/panda/panda_v2.urdf",
         # xform=wp.transform(wp.vec3(0, 0, 0.2), wp.quat(0, 0, 0, 1)),
     )
+    
     # import ipdb; ipdb.set_trace()
     model_builder.joint_target_ke[:9] = [400]*9
     model_builder.joint_target_kd[:9] = [20]*9
@@ -53,12 +58,22 @@ def main():
     # viewer.set_model(model)
     sim_timestep = 1.0 / 240.0
     sim_time = 0.0
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
     while True:
         if viewer.should_step():
             state_0.clear_forces()
             model.collide(state_0, contacts)
-            control.joint_target_q = wp.zeros_like(model.joint_q)
+            control.joint_target_q = wp.from_torch(torch.tensor([
+                    0.0,
+                    np.pi / 8,
+                    0,
+                    -np.pi * 5 / 8,
+                    0,
+                    np.pi * 3 / 4,
+                    np.pi / 4,
+                    0.04,
+                    0.04,
+                ]))
             solver.step(
                 state_in=state_0,
                 state_out=state_1,
