@@ -107,7 +107,11 @@ class NewtonSim(BaseSim):
         return builder
 
     def create_urdf_loader(self):
-        pass
+        from mani_skill.sim.newton.loaders.urdf import NewtonURDFLoader
+
+        loader = NewtonURDFLoader()
+        loader.sim = self
+        return loader
 
     def compile_render_scene(self):
         pass
