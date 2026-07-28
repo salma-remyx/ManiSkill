@@ -605,9 +605,6 @@ class SapienArticulation(SapienBaseStruct[physx.PhysxArticulation], Articulation
             )
         return self.links_map[arg0]
 
-    def get_active_joints(self):
-        return self.active_joints
-
     def get_dof(self) -> int:
         return self.dof
 

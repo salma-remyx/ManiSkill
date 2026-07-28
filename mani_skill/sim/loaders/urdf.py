@@ -123,9 +123,9 @@ class BaseURDFLoader:
                     f"{self.__sim_builders[sim.id].__class__.__name__} does not have "
                     "a disable_self_collisions attribute."
                 )
-                self.__sim_builders[
-                    sim.id
-                ].disable_self_collisions = disable_self_collisions
+            self.__sim_builders[
+                sim.id
+            ].disable_self_collisions = disable_self_collisions
 
     @property
     def name(self) -> str:

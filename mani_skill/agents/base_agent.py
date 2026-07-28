@@ -152,7 +152,7 @@ class BaseAgent:
         Loads the robot articulation
         """
 
-        def build_articulation(scene_idxs: Optional[list[int]] = None):
+        def build_articulation(scene_idxs: list[int] | None = None):
             loader: BaseURDFLoader | MJCFLoader | None = None
             if self.urdf_path is not None:
                 loader = self.scene.create_urdf_loader()

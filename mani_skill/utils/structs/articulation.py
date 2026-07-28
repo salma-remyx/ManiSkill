@@ -86,6 +86,9 @@ class Articulation(Generic[T]):
 
     def get_qvel(self):
         return self.qvel
+    
+    def get_active_joints(self):
+        return self.active_joints
 
     def get_root(self):
         return self.root

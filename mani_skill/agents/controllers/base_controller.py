@@ -59,7 +59,7 @@ class BaseController:
 
         # For action interpolation
         if sim_freq is None:  # infer from scene
-            sim_timestep = self.articulation.px.timestep
+            sim_timestep = scene.physics_sim.timestep
             sim_freq = round(1.0 / sim_timestep)
         self._sim_steps = sim_freq // control_freq
         """Number of simulation steps per control step"""
