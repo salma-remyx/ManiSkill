@@ -1,2 +1,0 @@
-from .open_cabinet_drawer import OpenCabinetDoorEnv as OpenCabinetDoorEnv
-from .open_cabinet_drawer import OpenCabinetDrawerEnv as OpenCabinetDrawerEnv

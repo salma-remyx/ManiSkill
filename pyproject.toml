@@ -42,8 +42,9 @@ sapien = [
     "sapien>=3.0.3",
 ]
 newton = [
-    "mujoco-warp>=3.9.0.1",
-    "newton>=1.2.1",
+    "imgui-bundle>=1.92.801",
+    "mujoco-warp>=3.11.0",
+    "newton>=1.4.0",
 ]
 
 [dependency-groups]

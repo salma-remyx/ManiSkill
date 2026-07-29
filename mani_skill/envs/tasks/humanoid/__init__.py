@@ -1,2 +1,0 @@
-from .humanoid_pick_place import HumanoidPlaceAppleInBowl as HumanoidPlaceAppleInBowl
-from .transport_box import TransportBoxEnv as TransportBoxEnv
