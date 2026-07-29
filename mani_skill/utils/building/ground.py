@@ -5,7 +5,7 @@ Useful utilities for creating the ground of a scene
 from __future__ import annotations
 
 import os.path as osp
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -32,6 +32,16 @@ def build_ground(
     Note that this function runs slower as floor width becomes larger, but in general this function takes no more than 0.05s to run
     and usually is never run more than once as it is for building a scene, not loading.
     """
+    # TODO (stao): temporary ground code for newton
+    if scene.physics_sim.id == "newton":
+        from mani_skill.sim.newton.builders.actor import NewtonActorBuilder
+
+        ground = scene.create_actor_builder()
+        cast(
+            NewtonActorBuilder, ground._sim_builders[scene.physics_sim.id]
+        )._mb.add_ground_plane(height=altitude)
+        return ground.build_static(name=name)
+
     ground = scene.create_actor_builder()
     if add_collision:
         ground.add_plane_collision(

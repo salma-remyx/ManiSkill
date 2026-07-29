@@ -26,8 +26,6 @@ class NewtonSim(BaseSim):
     """The warp device that the rendering is running on."""
     _model: newton.Model
     """The Newton model of the scene."""
-    _sim_time: float = 0.0
-    """The simulation time elapsed."""
     _state_0: newton.State
     """The state of the scene at the current time step."""
     _state_1: newton.State
@@ -36,7 +34,8 @@ class NewtonSim(BaseSim):
     """The control of the scene."""
     _contacts: newton.Contacts
     """The contacts buffer"""
-
+    _viewer: newton.viewer.ViewerBase | None = None
+    """The viewer for the scene."""
     _physics_step_graph: wp.Graph | None = None
     """The CUDA graph of the physics step."""
 
@@ -89,6 +88,11 @@ class NewtonSim(BaseSim):
         super().__init__(num_envs, cfg, sim_device_torch, render_device_torch)
 
         self._scene_mb = newton.ModelBuilder()
+        root_body = self._scene_mb.add_link(label="__root__")
+        root_joint = self._scene_mb.add_joint_fixed(
+            -1, root_body, label="__root_joint__"
+        )
+        self._scene_mb.add_articulation([root_joint])
 
     def create_actor_builder(self):
         from mani_skill.sim.newton.builders.actor import NewtonActorBuilder
@@ -127,13 +131,37 @@ class NewtonSim(BaseSim):
 
     def compile_physical_scene(self):
         self._model = self._scene_mb.finalize(self.sim_warp_device)
+
+        contact_max = 16384
+        self._model.rigid_contact_max = contact_max
+        self.collision_pipeline = newton.CollisionPipeline(
+            self._model,
+            reduce_contacts=True,
+            rigid_contact_max=contact_max,
+            broad_phase="nxn",
+        )
+        self._solver = newton.solvers.SolverMuJoCo(
+            self._model,
+            solver="newton",
+            integrator="implicitfast",
+            iterations=15,
+            ls_iterations=100,
+            nconmax=contact_max,
+            njmax=contact_max * 2,
+            cone="elliptic",
+            impratio=50.0,
+            use_mujoco_contacts=False,
+        )
+
         self._state_0 = self._model.state()
         self._state_1 = self._model.state()
         self._control = self._model.control()
         self._contacts = self._model.contacts()
-        self._solver = newton.solvers.SolverXPBD(
+        newton.eval_fk(
             self._model,
-            iterations=10,
+            self._model.joint_q,
+            self._model.joint_qd,
+            self._state_0,  # type: ignore
         )
 
         if self.sim_warp_device.is_cuda:
@@ -142,17 +170,18 @@ class NewtonSim(BaseSim):
             self._physics_step_graph = capture.graph
 
     def physics_step(self):
+        if self._physics_steps % (self.cfg.sim_freq // self.cfg.control_freq) == 0:
+            self.collision_pipeline.collide(self._state_0, self._contacts)
         if self._physics_step_graph is not None:
             wp.capture_launch(self._physics_step_graph)
         else:
             self._physics_step()
-        self._sim_time += self.timestep
+        self._physics_steps += 1
 
     def _physics_step(self):
         self._state_0.clear_forces()
-
-        self._model.collide(self._state_0, self._contacts)
-
+        if self._viewer is not None:
+            self._viewer.apply_forces(self._state_0)
         self._solver.step(
             state_in=self._state_0,
             state_out=self._state_1,

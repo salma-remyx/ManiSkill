@@ -28,13 +28,13 @@ class BaseActorBuilder(BaseBuilder):
     """The list of scene indices to build this actor in. If None, the actor will be
     built in all scenes."""
 
-    __sims: dict[str, BaseSim]
+    _sims: dict[str, BaseSim]
     """Dictionary of simulators that will be tracking this builder. There can be multiple simulators
     that track this builder in order to support using different simulators for physics and
     rendering. If you are writing an ActorBuilder for a simulator package (e.g. Sapien/Newton),
     you should not be accessing this attribute ever."""
 
-    __sim_builders: dict[str, BaseActorBuilder]
+    _sim_builders: dict[str, BaseActorBuilder]
     """Dictionary mapping sim id to the corresponding actor builder for that simulator."""
 
     sim: BaseSim
@@ -51,8 +51,8 @@ class BaseActorBuilder(BaseBuilder):
     # classes.
 
     def __init__(self):
-        self.__sims = {}
-        self.__sim_builders = {}
+        self._sims = {}
+        self._sim_builders = {}
 
     def _add_sim(self, sim: BaseSim):
         """
@@ -65,24 +65,24 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        self.__sims[sim.id] = sim
-        self.__sim_builders[sim.id] = sim.create_actor_builder()
+        self._sims[sim.id] = sim
+        self._sim_builders[sim.id] = sim.create_actor_builder()
         return self
 
     @property
     def initial_pose(self) -> Pose | None:
         """The initial pose of the actor when it gets built and spawned into the simulation."""
-        return next(iter(self.__sim_builders.values())).initial_pose
+        return next(iter(self._sim_builders.values())).initial_pose
 
     @initial_pose.setter
     def initial_pose(self, initial_pose: Pose | None):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "initial_pose."
                 )
-            self.__sim_builders[sim.id].initial_pose = initial_pose
+            self._sim_builders[sim.id].initial_pose = initial_pose
 
     def set_initial_pose(self, initial_pose: Pose | None = None):
         """
@@ -102,13 +102,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "set_scene_idxs."
                 )
-            builder = self.__sim_builders[sim.id].set_scene_idxs(scene_idxs)
+            builder = self._sim_builders[sim.id].set_scene_idxs(scene_idxs)
         return builder
 
     def build(self, name: str) -> Actor:
@@ -121,13 +121,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The built actor.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "build."
                 )
-            actor = self.__sim_builders[sim.id].build(name=name)
+            actor = self._sim_builders[sim.id].build(name=name)
         return actor
 
     def build_kinematic(self, name: str) -> Actor:
@@ -140,13 +140,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The built actor.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "build_kinematic."
                 )
-            actor = self.__sim_builders[sim.id].build_kinematic(name=name)
+            actor = self._sim_builders[sim.id].build_kinematic(name=name)
         return actor
 
     def build_static(self, name: str) -> Actor:
@@ -160,13 +160,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The built actor.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "build_static."
                 )
-            actor = self.__sim_builders[sim.id].build_static(name=name)
+            actor = self._sim_builders[sim.id].build_static(name=name)
         return actor
 
     ### Standard primitive building functions, based on Sapien's original ActorBuilder ###
@@ -177,13 +177,13 @@ class BaseActorBuilder(BaseBuilder):
         patch_radius: float = 0,
         min_patch_radius: float = 0,
     ):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_plane_collision."
                 )
-            self.__sim_builders[sim.id].add_plane_collision(
+            self._sim_builders[sim.id].add_plane_collision(
                 pose=pose,
                 material=material,
                 patch_radius=patch_radius,
@@ -198,13 +198,13 @@ class BaseActorBuilder(BaseBuilder):
         material: Any | Vec3 | None = None,
         name: str = "",
     ):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_plane_visual."
                 )
-            self.__sim_builders[sim.id].add_plane_visual(
+            self._sim_builders[sim.id].add_plane_visual(
                 pose=pose,
                 scale=scale,
                 material=material,
@@ -222,13 +222,13 @@ class BaseActorBuilder(BaseBuilder):
         patch_radius: float = 0,
         min_patch_radius: float = 0,
     ):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_capsule_collision."
                 )
-            self.__sim_builders[sim.id].add_capsule_collision(
+            self._sim_builders[sim.id].add_capsule_collision(
                 pose=pose,
                 radius=radius,
                 half_length=half_length,
@@ -247,13 +247,13 @@ class BaseActorBuilder(BaseBuilder):
         material: Any | Vec3 | None = None,
         name: str = "",
     ):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_capsule_visual."
                 )
-            self.__sim_builders[sim.id].add_capsule_visual(
+            self._sim_builders[sim.id].add_capsule_visual(
                 pose=pose,
                 radius=radius,
                 half_length=half_length,
@@ -272,13 +272,13 @@ class BaseActorBuilder(BaseBuilder):
         patch_radius: float = 0,
         min_patch_radius: float = 0,
     ):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_cylinder_collision."
                 )
-            self.__sim_builders[sim.id].add_cylinder_collision(
+            self._sim_builders[sim.id].add_cylinder_collision(
                 pose=pose,
                 radius=radius,
                 half_length=half_length,
@@ -297,13 +297,13 @@ class BaseActorBuilder(BaseBuilder):
         material: Any | Vec3 | None = None,
         name: str = "",
     ):
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_cylinder_visual."
                 )
-            self.__sim_builders[sim.id].add_cylinder_visual(
+            self._sim_builders[sim.id].add_cylinder_visual(
                 pose=pose,
                 radius=radius,
                 half_length=half_length,
@@ -334,13 +334,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_box_collision."
                 )
-            self.__sim_builders[sim.id].add_box_collision(
+            self._sim_builders[sim.id].add_box_collision(
                 pose=pose,
                 half_size=half_size,
                 material=material,
@@ -370,13 +370,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_box_visual."
                 )
-            self.__sim_builders[sim.id].add_box_visual(
+            self._sim_builders[sim.id].add_box_visual(
                 pose=pose,
                 half_size=half_size,
                 material=material,
@@ -405,13 +405,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_sphere_collision."
                 )
-            self.__sim_builders[sim.id].add_sphere_collision(
+            self._sim_builders[sim.id].add_sphere_collision(
                 pose=pose,
                 radius=radius,
                 material=material,
@@ -440,13 +440,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_sphere_visual."
                 )
-            self.__sim_builders[sim.id].add_sphere_visual(
+            self._sim_builders[sim.id].add_sphere_visual(
                 pose=pose,
                 radius=radius,
                 material=material,
@@ -478,13 +478,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_convex_collision_from_file."
                 )
-            self.__sim_builders[sim.id].add_convex_collision_from_file(
+            self._sim_builders[sim.id].add_convex_collision_from_file(
                 filename=filename,
                 pose=pose,
                 scale=scale,
@@ -521,13 +521,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_multiple_convex_collisions_from_file."
                 )
-            self.__sim_builders[sim.id].add_multiple_convex_collisions_from_file(
+            self._sim_builders[sim.id].add_multiple_convex_collisions_from_file(
                 filename=filename,
                 pose=pose,
                 scale=scale,
@@ -561,13 +561,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_nonconvex_collision_from_file."
                 )
-            self.__sim_builders[sim.id].add_nonconvex_collision_from_file(
+            self._sim_builders[sim.id].add_nonconvex_collision_from_file(
                 filename=filename,
                 pose=pose,
                 scale=scale,
@@ -597,13 +597,13 @@ class BaseActorBuilder(BaseBuilder):
         Returns:
             The actor builder.
         """
-        for sim in self.__sims.values():
-            if self.__sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
+        for sim in self._sims.values():
+            if self._sim_builders[sim.id].__class__.__name__ == "BaseActorBuilder":
                 raise NotImplementedError(
-                    f"{self.__sim_builders[sim.id].__class__.__name__} does not support "
+                    f"{self._sim_builders[sim.id].__class__.__name__} does not support "
                     "add_visual_from_file."
                 )
-            self.__sim_builders[sim.id].add_visual_from_file(
+            self._sim_builders[sim.id].add_visual_from_file(
                 filename=filename,
                 pose=pose,
                 scale=scale,

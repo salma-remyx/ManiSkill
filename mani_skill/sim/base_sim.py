@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch
 
@@ -87,6 +87,10 @@ class BaseSim(ABC):
     """The dictionary of articulations in the simulation backend."""
     _gpu_sim_initialized: bool = False
     """whether the GPU simulation has been initialized"""
+    _physics_steps: int = 0
+    """The number of physics steps taken."""
+    _viewer: Any | None = None
+    """The viewer for the scene."""
 
     def __init__(
         self,
@@ -116,6 +120,11 @@ class BaseSim(ABC):
     def timestep(self) -> float:
         """The timestep of the simulation."""
         return 1.0 / self.cfg.sim_freq
+
+    @property
+    def sim_time(self) -> int:
+        """The simulation time passed. Equal to physics_steps * timestep."""
+        return self._physics_steps * self.timestep
 
     ### Code for adding builders to a scene for rendering/physics simulation ###
     @abstractmethod

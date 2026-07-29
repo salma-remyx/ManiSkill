@@ -164,13 +164,21 @@ class PDJointPosMimicController(PDJointPosController):
             control_joint_name = mimic_data["joint"]
             multiplier = mimic_data.get("multiplier", 1.0)
             offset = mimic_data.get("offset", 0.0)
+            import ipdb
+
+            ipdb.set_trace()
             assert (
-                self.articulation.joints_map[mimic_joint_name].active_index is not None
-            ), f"Mimic joint {mimic_joint_name} is not active, cannot be used as a mimic joint in a mimic controller"
-            assert (
-                self.articulation.joints_map[control_joint_name].active_index
+                self.articulation.active_joints_map[mimic_joint_name].active_index
                 is not None
-            ), f"Control joint {control_joint_name} is not active, cannot be used as a control joint in a mimic controller"
+            ), (
+                f"Mimic joint {mimic_joint_name} is not active, cannot be used as a mimic joint in a mimic controller"
+            )
+            assert (
+                self.articulation.active_joints_map[control_joint_name].active_index
+                is not None
+            ), (
+                f"Control joint {control_joint_name} is not active, cannot be used as a control joint in a mimic controller"
+            )
 
             # NOTE (stao): we are assuming all the articulations are the exact same structure. At the moment I see very little reason to try and support training/evaluating on different embodiments
             # simultaneously in one process

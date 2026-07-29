@@ -32,15 +32,9 @@ class SapienArticulationJoint(
     to having the same properties as each other
     """
 
-    index: torch.Tensor
-    """index of this joint among all joints"""
-    active_index: torch.Tensor | None
-    """index of this joint amongst the active joints"""
-
     articulation: SapienArticulation | None = None
     child_link: SapienLink | None = None
     parent_link: SapienLink | None = None
-    name: str = None
 
     _physx_articulations: list[physx.PhysxArticulation] = None
 

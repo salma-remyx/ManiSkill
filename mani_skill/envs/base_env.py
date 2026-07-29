@@ -1353,6 +1353,8 @@ class BaseEnv(gym.Env):
             self._viewer = viewer
         else:
             raise NotImplementedError(f"Viewer creation not supported for the renderer backend: {self.backend.render_backend_package}")
+        self.scene.physics_sim._viewer = self._viewer
+        self.scene.render_sim._viewer = self._viewer
 
     def render_human(self):
         """render the environment by opening a GUI viewer. This also returns the viewer object. Any objects registered in the _hidden_objects list will be shown"""
@@ -1367,9 +1369,15 @@ class BaseEnv(gym.Env):
                 self.scene.render_sim.px.sync_poses_gpu_to_cpu()  # pyright: ignore[reportAttributeAccessIssue]
             self._viewer.render() # type: ignore
         elif self.backend.render_backend_package == "newton":
-            self._viewer.begin_frame(self.scene.render_sim._sim_time)
-            self._viewer.log_state(self.scene.render_sim._state_0)
-            self._viewer.end_frame()
+            # TODO (stao): we should shove this under the newton folder
+            import newton
+
+            from mani_skill.sim.newton.sim import NewtonSim
+            render_sim = cast(NewtonSim, self.scene.render_sim)
+            viewer = cast(newton.viewer.ViewerGL, self._viewer)
+            viewer.begin_frame(render_sim.sim_time)
+            viewer.log_state(render_sim._state_0)
+            viewer.end_frame()
         for obj in self._hidden_objects:
             obj.hide_visual()
         return self._viewer

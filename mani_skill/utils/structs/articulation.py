@@ -13,7 +13,7 @@ T = TypeVar("T", bound=BaseStruct)
 
 
 @dataclass(kw_only=True)
-class Articulation(Generic[T]):
+class Articulation(Generic[T], BaseStruct):
     merged: bool = False
     """
     Whether or not this articulation object is a merged articulation where it is managing many
@@ -86,7 +86,7 @@ class Articulation(Generic[T]):
 
     def get_qvel(self):
         return self.qvel
-    
+
     def get_active_joints(self):
         return self.active_joints
 
@@ -104,6 +104,10 @@ class Articulation(Generic[T]):
 
     def set_pose(self, arg0: Pose) -> None:
         self.pose = arg0
+
+    @property
+    def qlimits(self) -> torch.Tensor:
+        raise NotImplementedError()
 
     @property
     def qf(self) -> torch.Tensor:
