@@ -1,0 +1,2 @@
+class BaseArticulationBuilder:
+    pass

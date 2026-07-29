@@ -1,0 +1,2 @@
+class BaseActorBuilder:
+    pass
