@@ -6,15 +6,22 @@ from mani_skill.sim.core.base_sim import BaseSimConfig
 
 
 class BaseEnv:
+    obs_mode: str
+    reward_mode: str
+    render_mode: str | None
+    num_envs: int = 1
+    physics_backend: str
+    render_backend: str
+
     def __init__(
         self,
         *,
-        obs_mode: str | None = None,
-        reward_mode: str | None = None,
+        obs_mode: str = "state",
+        reward_mode: str = "normalized_dense",
         render_mode: str | None = None,
         num_envs: int = 1,
-        physics_backend: str = "auto",
-        render_backend: str = "auto",
+        physics_backend: str = "newton:mj_cpu",
+        render_backend: str = "newton:warp",
     ):
         """Initialize a ManiSkill environment.
 
@@ -26,20 +33,21 @@ class BaseEnv:
             physics_backend: The backend to use for physics simulation.
             render_backend: The backend to use for rendering.
         """
-        super().__init__()
-        self._init_kwargs = {
-            "obs_mode": obs_mode,
-            "reward_mode": reward_mode,
-            "render_mode": render_mode,
-            "num_envs": num_envs,
-            "physics_backend": physics_backend,
-            "render_backend": render_backend,
-        }
+        self.obs_mode = obs_mode
+        self.reward_mode = reward_mode
+        self.render_mode = render_mode
+        self.num_envs = num_envs
+        self.physics_backend = physics_backend
+        self.render_backend = render_backend
 
     @property
     def _default_sim_config(self) -> BaseSimConfig:
         """Return the default simulation configuration for this environment."""
         return BaseSimConfig()
+
+    # ------------------------------------------------------------
+    # Gymnasium style methods for env life-cycle
+    # ------------------------------------------------------------
 
     def step(self, action: Any) -> tuple[Any, Any, Any, Any, Any]:
         return None, None, None, None, None
@@ -75,4 +83,20 @@ class BaseEnv:
         pass
 
     def close(self) -> None:
+        pass
+
+    # ------------------------------------------------------------
+    # Environment management methods
+    # ------------------------------------------------------------
+
+    def _reconfigure(self) -> None:
+        pass
+
+    # ------------------------------------------------------------
+    # Task-specific methods
+    # ------------------------------------------------------------
+    def _load_scene(self) -> None:
+        pass
+
+    def _initialize_episode(self) -> None:
         pass

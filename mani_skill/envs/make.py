@@ -7,12 +7,12 @@ from mani_skill.envs.registry import REGISTERED_ENVS
 def make(
     env_id: str,
     *,
-    obs_mode: str | None = None,
-    reward_mode: str | None = None,
+    obs_mode: str = "state",
+    reward_mode: str = "normalized_dense",
     render_mode: str | None = None,
     num_envs: int = 1,
-    physics_backend: str = "auto",
-    render_backend: str = "auto",
+    physics_backend: str = "newton:mj_cpu",
+    render_backend: str = "newton:warp",
 ) -> BaseEnv:
     """Create a registered ManiSkill environment.
 

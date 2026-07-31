@@ -4,6 +4,7 @@ from typing import Annotated, Optional, Union
 import numpy as np
 import tyro
 
+from mani_skill.envs import tasks  # noqa: F401 # pyright: ignore[reportUnusedImport]
 from mani_skill.envs.make import make
 
 
@@ -50,7 +51,7 @@ def main(args: Args):
         np.random.seed(args.seed[0])  # seed np based RNG for action sampling
     verbose = not args.quiet
     env = make(
-        env_id="",
+        env_id=args.env_id,
         obs_mode=args.obs_mode,
         render_mode=args.render_mode,
         num_envs=args.num_envs,
