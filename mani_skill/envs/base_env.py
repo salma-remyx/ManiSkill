@@ -48,8 +48,27 @@ class BaseEnv:
         self,
         *,
         seed: int | Sequence[int] | None = None,
+        reconfigure: bool = False,
+        env_idx: Sequence[int] | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[Any, Any]:
+        """
+        Resets the environment to an initial state. Initial state is defined by the task's
+        initialize_episode function.
+
+        Args:
+            seed: The seed for the environment. If a single integer is provided, it will be used
+                to seed all parallel environment RNG sequences. If a sequence/list of integers is
+                provided, each parallel environment's RNG sequence will be seeded with a different
+                integer. Default is None, in which we use the seed 2026 to seed all environment's
+                upon initial creation of the environment.
+            reconfigure: Whether to reconfigure the environment. Reconfiguration essentially means
+                the simulation is deleted, and a new one is created permitting scene recompilation.
+                Useful if you want to randomize assets.
+            env_idx: The indices of the environment to reset. If None, all environments are reset.
+            options: Additional options to pass to the environment's reset function. Used by custom
+                environments to pass in additional information.
+        """
         return None, None
 
     def render(self) -> None:
