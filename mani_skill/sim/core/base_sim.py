@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any
 
-import torch
-
 from mani_skill.sim.core.builders.actor import BaseActorBuilder
 from mani_skill.sim.core.builders.articulation import BaseArticulationBuilder
 from mani_skill.sim.core.entities.actor import Actor
@@ -48,9 +46,9 @@ class BaseSim(ABC):
 
     id: str
     """The id of the simulation backend."""
-    physics_device_torch: torch.device
+    physics_device: Any
     """The torch device that the physics engine returns data on."""
-    render_device_torch: torch.device
+    render_device: Any
     """The torch device that the renderer returns data on."""
     cfg: BaseSimConfig
     """The configuration for the simulation backend."""
@@ -74,21 +72,18 @@ class BaseSim(ABC):
         self,
         num_envs: int = 1,
         cfg: BaseSimConfig | None = None,
-        physics_device_torch: torch.device | None = None,
-        render_device_torch: torch.device | None = None,
+        physics_device: Any = None,
+        render_device: Any = None,
     ):
-        if physics_device_torch is None:
-            physics_device_torch = torch.device("cpu")
-        if render_device_torch is None:
-            render_device_torch = torch.device("cpu")
+        if physics_device is None:
+            physics_device = "cpu"
+        if render_device is None:
+            render_device = "cpu"
         self.num_envs = num_envs
         self.cfg = cfg or BaseSimConfig()
-        self.physics_device_torch = physics_device_torch
-        self.render_device_torch = render_device_torch
-        if self.physics_device_torch.type == "cuda":
-            self.batch_sim_enabled = True
-        else:
-            self.batch_sim_enabled = False
+        self.physics_device = physics_device
+        self.render_device = render_device
+        self.batch_sim_enabled = num_envs > 1
         self.actors = dict()
         self.articulations = dict()
         self._gpu_sim_initialized = False
