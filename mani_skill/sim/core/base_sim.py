@@ -133,13 +133,13 @@ class BaseSim(ABC):
             urdf_path: The path to the URDF file.
         """
 
-    def remove_actor(self, actor: Actor):
+    def remove_actor(self, actor: Actor) -> None:
         """
         Removes an actor from the simulation scene.
         """
         raise NotImplementedError()
 
-    def remove_articulation(self, articulation: Articulation):
+    def remove_articulation(self, articulation: Articulation) -> None:
         """
         Removes an articulation from the simulation scene.
         """
@@ -148,19 +148,19 @@ class BaseSim(ABC):
     # ---------------------------------------------------------------------------- #
     # Code for working with cameras and sensors
     # ---------------------------------------------------------------------------- #
-    
+
     # ---------------------------------------------------------------------------- #
     # Code for lighting
     # ---------------------------------------------------------------------------- #
     @property
-    def ambient_light(self):
+    def ambient_light(self) -> tuple[float, float, float]:
         """
         The ambient light of the simulation scene.
         """
         raise NotImplementedError()
 
     @ambient_light.setter
-    def ambient_light(self, color):
+    def ambient_light(self, color: tuple[float, float, float]) -> None:
         """
         Sets the ambient light of the simulation scene.
         """
@@ -189,7 +189,7 @@ class BaseSim(ABC):
         update_sensors: bool = True,
         update_human_render_cameras: bool = True,
         update_viewer_cameras: bool = True,
-    ):
+    ) -> None:
         """
         Updates all sensors such as cameras. ManiSkill further groups sensors into three categories:
 
