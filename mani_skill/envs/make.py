@@ -26,7 +26,7 @@ def make(
         render_backend: The backend to use for rendering.
 
     Returns:
-        The constructed Gymnasium environment.
+        The environment.
     """
     return REGISTERED_ENVS[env_id](
         obs_mode=obs_mode,

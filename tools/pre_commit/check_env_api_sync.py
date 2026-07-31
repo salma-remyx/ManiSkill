@@ -1,11 +1,12 @@
-# Checks that BaseEnv and make expose the same typed environment options.
-# NOTE (stao): file is entirely vibe-coded
+# Synchronizes the public make API with BaseEnv.__init__ before changes are committed.
 
 from __future__ import annotations
 
 import ast
 import re
 import sys
+import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -13,21 +14,44 @@ BASE_ENV_PATH = REPO_ROOT / "mani_skill/envs/base_env.py"
 MAKE_PATH = REPO_ROOT / "mani_skill/envs/make.py"
 DOC_ARG_PATTERN = re.compile(r"^\s+(\w+):\s*(.*)$")
 
-Parameter = tuple[str, str, str]
-
 
 class ApiSyncError(Exception):
-    """Raised when the public environment construction APIs differ."""
+    """Raised when an environment API cannot be read or synchronized safely."""
 
 
-def _parse_file(path: Path) -> ast.Module:
-    """Parse a Python source file without importing its dependencies."""
+@dataclass(frozen=True)
+class Parameter:
+    """Store the source-level parts of a keyword-only parameter."""
+
+    name: str
+    annotation: str
+    default: str | None
+
+    def render(self) -> str:
+        """Render the parameter for a generated function signature."""
+        default = "" if self.default is None else f" = {self.default}"
+        return f"{self.name}: {self.annotation}{default}"
+
+
+def _parse_source(source: str, path: Path) -> ast.Module:
+    """Parse Python source without importing its dependencies."""
     try:
-        return ast.parse(path.read_text(), filename=str(path))
-    except (OSError, SyntaxError) as error:
+        return ast.parse(source, filename=str(path))
+    except SyntaxError as error:
         raise ApiSyncError(
             f"Could not parse {path.relative_to(REPO_ROOT)}: {error}"
         ) from error
+
+
+def _read_source(path: Path) -> tuple[str, ast.Module]:
+    """Read and parse a Python source file."""
+    try:
+        source = path.read_text()
+    except OSError as error:
+        raise ApiSyncError(
+            f"Could not read {path.relative_to(REPO_ROOT)}: {error}"
+        ) from error
+    return source, _parse_source(source, path)
 
 
 def _find_base_env_init(module: ast.Module) -> ast.FunctionDef:
@@ -73,13 +97,14 @@ def _find_make(module: ast.Module) -> ast.FunctionDef:
     return make
 
 
-def _shared_parameters(function: ast.FunctionDef, leading_name: str) -> list[Parameter]:
-    """Extract the typed keyword-only parameters after a required leading parameter."""
+def _validate_function_shape(function: ast.FunctionDef, leading_name: str) -> ast.arg:
+    """Validate the fixed leading argument and return it."""
     arguments = function.args
     positional = [*arguments.posonlyargs, *arguments.args]
     if [argument.arg for argument in positional] != [leading_name]:
         raise ApiSyncError(
-            f"{function.name} must have only {leading_name!r} before its keyword-only options"
+            f"{function.name} must have only {leading_name!r} before its "
+            "keyword-only options"
         )
     if arguments.defaults:
         raise ApiSyncError(
@@ -87,21 +112,48 @@ def _shared_parameters(function: ast.FunctionDef, leading_name: str) -> list[Par
         )
     if arguments.vararg is not None or arguments.kwarg is not None:
         raise ApiSyncError(f"{function.name} must not accept *args or **kwargs")
+    return positional[0]
 
+
+def _shared_parameters(
+    function: ast.FunctionDef, leading_name: str, source: str | None = None
+) -> list[Parameter]:
+    """Extract typed keyword-only parameters after a required leading parameter."""
+    _validate_function_shape(function, leading_name)
     parameters: list[Parameter] = []
-    for argument, default in zip(arguments.kwonlyargs, arguments.kw_defaults):
+    for argument, default in zip(
+        function.args.kwonlyargs, function.args.kw_defaults, strict=True
+    ):
         if argument.annotation is None:
             raise ApiSyncError(
                 f"{function.name}'s {argument.arg!r} parameter has no type annotation"
             )
-        annotation_text = ast.unparse(argument.annotation)
-        default_text = "<required>" if default is None else ast.unparse(default)
-        parameters.append((argument.arg, annotation_text, default_text))
+        parameters.append(
+            Parameter(
+                name=argument.arg,
+                annotation=(
+                    ast.get_source_segment(source, argument.annotation)
+                    if source is not None
+                    else ast.unparse(argument.annotation)
+                )
+                or ast.unparse(argument.annotation),
+                default=(
+                    None
+                    if default is None
+                    else (
+                        ast.get_source_segment(source, default)
+                        if source is not None
+                        else ast.unparse(default)
+                    )
+                    or ast.unparse(default)
+                ),
+            )
+        )
     return parameters
 
 
 def _documented_arguments(function: ast.FunctionDef) -> dict[str, str]:
-    """Extract argument descriptions from a Google-style Args section."""
+    """Extract normalized argument descriptions from a Google-style Args section."""
     docstring = ast.get_docstring(function, clean=True)
     if docstring is None:
         raise ApiSyncError(f"{function.name} has no docstring")
@@ -121,6 +173,10 @@ def _documented_arguments(function: ast.FunctionDef) -> dict[str, str]:
         match = DOC_ARG_PATTERN.match(line)
         if match:
             argument_name = match.group(1)
+            if argument_name in descriptions:
+                raise ApiSyncError(
+                    f"{function.name} documents {argument_name!r} more than once"
+                )
             descriptions[argument_name] = [match.group(2).strip()]
             current_name = argument_name
         elif current_name is not None and line.strip():
@@ -134,64 +190,223 @@ def _documented_arguments(function: ast.FunctionDef) -> dict[str, str]:
     }
 
 
-def _check_documentation(
-    base_init: ast.FunctionDef,
-    make: ast.FunctionDef,
-    parameter_names: list[str],
-) -> None:
-    """Check that both APIs document the same shared parameters identically."""
+def _validate_base_documentation(
+    base_init: ast.FunctionDef, parameters: list[Parameter]
+) -> dict[str, str]:
+    """Return complete BaseEnv constructor documentation for its parameters."""
     base_docs = _documented_arguments(base_init)
-    make_docs = _documented_arguments(make)
-    expected_base_names = set(parameter_names)
-    expected_make_names = {"env_id", *parameter_names}
-
-    if set(base_docs) != expected_base_names:
+    expected_names = {parameter.name for parameter in parameters}
+    if set(base_docs) != expected_names:
         raise ApiSyncError(
             "BaseEnv.__init__ documentation does not match its parameters: "
-            f"expected {sorted(expected_base_names)}, found {sorted(base_docs)}"
+            f"expected {sorted(expected_names)}, found {sorted(base_docs)}"
         )
-    if set(make_docs) != expected_make_names:
-        raise ApiSyncError(
-            "make documentation does not match its parameters: "
-            f"expected {sorted(expected_make_names)}, found {sorted(make_docs)}"
-        )
+    return base_docs
 
-    mismatches = [
-        name for name in parameter_names if base_docs[name] != make_docs[name]
+
+def _format_doc_argument(name: str, description: str) -> list[str]:
+    """Format one argument description within a cleaned docstring."""
+    return textwrap.wrap(
+        description,
+        width=84,
+        initial_indent=f"    {name}: ",
+        subsequent_indent="        ",
+        break_long_words=False,
+        break_on_hyphens=False,
+    ) or [f"    {name}:"]
+
+
+def _synchronized_docstring(
+    make: ast.FunctionDef,
+    parameters: list[Parameter],
+    base_docs: dict[str, str],
+) -> str:
+    """Build make's docstring with BaseEnv's ordered argument documentation."""
+    docstring = ast.get_docstring(make, clean=True)
+    if docstring is None:
+        raise ApiSyncError("make has no docstring")
+    make_docs = _documented_arguments(make)
+    if "env_id" not in make_docs:
+        raise ApiSyncError("make's docstring does not document 'env_id'")
+
+    lines = docstring.splitlines()
+    args_index = lines.index("Args:")
+    section_end = len(lines)
+    for index in range(args_index + 1, len(lines)):
+        if lines[index] and not lines[index][0].isspace():
+            section_end = index
+            break
+
+    argument_lines: list[str] = []
+    descriptions = [("env_id", make_docs["env_id"])]
+    descriptions.extend(
+        (parameter.name, base_docs[parameter.name]) for parameter in parameters
+    )
+    for name, description in descriptions:
+        argument_lines.extend(_format_doc_argument(name, description))
+
+    suffix = lines[section_end:]
+    while suffix and not suffix[0]:
+        suffix.pop(0)
+    replacement = ["Args:", *argument_lines]
+    if suffix:
+        replacement.append("")
+    return "\n".join([*lines[:args_index], *replacement, *suffix])
+
+
+def _render_docstring(docstring: str) -> str:
+    """Render a cleaned docstring at make's function-body indentation."""
+    if '"""' in docstring:
+        raise ApiSyncError("make's docstring contains an unsupported triple quote")
+    lines = docstring.splitlines()
+    if not lines:
+        return '""""""'
+    rendered = [f'"""{lines[0]}']
+    rendered.extend(f"    {line}" if line else "" for line in lines[1:])
+    rendered.append('    """')
+    return "\n".join(rendered)
+
+
+def _render_signature(
+    make: ast.FunctionDef, leading_argument: ast.arg, parameters: list[Parameter]
+) -> str:
+    """Render make's signature using BaseEnv's shared parameters."""
+    if leading_argument.annotation is None:
+        raise ApiSyncError("make's 'env_id' parameter has no type annotation")
+    leading = f"{leading_argument.arg}: {ast.unparse(leading_argument.annotation)}"
+    returns = "" if make.returns is None else f" -> {ast.unparse(make.returns)}"
+    lines = ["def make(", f"    {leading},", "    *,"]
+    lines.extend(f"    {parameter.render()}," for parameter in parameters)
+    lines.append(f"){returns}:")
+    return "\n".join(lines) + "\n"
+
+
+def _find_constructor_call(make: ast.FunctionDef) -> ast.Call:
+    """Find the direct constructor call returned by make."""
+    returns = [node for node in make.body if isinstance(node, ast.Return)]
+    if len(returns) != 1 or not isinstance(returns[0].value, ast.Call):
+        raise ApiSyncError("make must directly return exactly one constructor call")
+    call = returns[0].value
+    if call.args:
+        raise ApiSyncError("make's constructor call must use keyword arguments")
+    return call
+
+
+def _render_constructor_call(
+    source: str, call: ast.Call, parameters: list[Parameter]
+) -> str:
+    """Render make's constructor call with every shared parameter forwarded."""
+    function = ast.get_source_segment(source, call.func)
+    if function is None:
+        raise ApiSyncError("Could not read make's constructor expression")
+    lines = [f"{function}("]
+    lines.extend(
+        f"        {parameter.name}={parameter.name}," for parameter in parameters
+    )
+    lines.append("    )")
+    return "\n".join(lines)
+
+
+def _line_offsets(source: str) -> list[int]:
+    """Return absolute offsets for the start of each source line."""
+    offsets = [0]
+    for match in re.finditer("\n", source):
+        offsets.append(match.end())
+    return offsets
+
+
+def _node_span(node: ast.AST, offsets: list[int]) -> tuple[int, int]:
+    """Return an AST node's absolute character span."""
+    if not all(
+        hasattr(node, attribute)
+        for attribute in ("lineno", "col_offset", "end_lineno", "end_col_offset")
+    ):
+        raise ApiSyncError("Could not determine a source node's location")
+    start = offsets[node.lineno - 1] + node.col_offset
+    end = offsets[node.end_lineno - 1] + node.end_col_offset
+    return start, end
+
+
+def _apply_replacements(source: str, replacements: list[tuple[int, int, str]]) -> str:
+    """Apply non-overlapping source replacements from bottom to top."""
+    for start, end, replacement in sorted(replacements, reverse=True):
+        source = source[:start] + replacement + source[end:]
+    return source
+
+
+def _synchronize_make(
+    base_source: str,
+    base_init: ast.FunctionDef,
+    make_source: str,
+    make: ast.FunctionDef,
+) -> str:
+    """Rewrite make's signature, documentation, and forwarded arguments."""
+    parameters = _shared_parameters(base_init, "self", base_source)
+    base_docs = _validate_base_documentation(base_init, parameters)
+    leading_argument = _validate_function_shape(make, "env_id")
+    if not make.body or not (
+        isinstance(make.body[0], ast.Expr)
+        and isinstance(make.body[0].value, ast.Constant)
+        and isinstance(make.body[0].value.value, str)
+    ):
+        raise ApiSyncError("make's docstring must be its first statement")
+    docstring_node = make.body[0].value
+    constructor_call = _find_constructor_call(make)
+    offsets = _line_offsets(make_source)
+
+    signature_start = offsets[make.lineno - 1]
+    signature_end = offsets[docstring_node.lineno - 1]
+    replacements = [
+        (
+            signature_start,
+            signature_end,
+            _render_signature(make, leading_argument, parameters),
+        ),
+        (
+            *_node_span(docstring_node, offsets),
+            _render_docstring(_synchronized_docstring(make, parameters, base_docs)),
+        ),
+        (
+            *_node_span(constructor_call, offsets),
+            _render_constructor_call(make_source, constructor_call, parameters),
+        ),
     ]
-    if mismatches:
-        details = "\n".join(
-            f"  {name}: BaseEnv={base_docs[name]!r}, make={make_docs[name]!r}"
-            for name in mismatches
+    synchronized = _apply_replacements(make_source, replacements)
+
+    synchronized_make = _find_make(_parse_source(synchronized, MAKE_PATH))
+    if _shared_parameters(synchronized_make, "env_id", synchronized) != parameters:
+        raise ApiSyncError("Generated make signature did not match BaseEnv.__init__")
+    synchronized_docs = _documented_arguments(synchronized_make)
+    expected_docs = {"env_id": _documented_arguments(make)["env_id"], **base_docs}
+    if synchronized_docs != expected_docs:
+        raise ApiSyncError(
+            "Generated make documentation did not match BaseEnv.__init__"
         )
-        raise ApiSyncError(f"Argument documentation differs:\n{details}")
+    return synchronized
 
 
 def main() -> int:
-    """Check the BaseEnv and make signatures and report actionable failures."""
+    """Synchronize make with BaseEnv.__init__, writing changes when needed."""
     try:
-        base_init = _find_base_env_init(_parse_file(BASE_ENV_PATH))
-        make = _find_make(_parse_file(MAKE_PATH))
-        base_parameters = _shared_parameters(base_init, "self")
-        make_parameters = _shared_parameters(make, "env_id")
-
-        if base_parameters != make_parameters:
-            raise ApiSyncError(
-                "BaseEnv.__init__ and make keyword parameters differ:\n"
-                f"  BaseEnv: {base_parameters}\n"
-                f"  make:    {make_parameters}"
-            )
-
-        _check_documentation(
-            base_init,
-            make,
-            [name for name, _, _ in base_parameters],
+        base_source, base_module = _read_source(BASE_ENV_PATH)
+        make_source, make_module = _read_source(MAKE_PATH)
+        synchronized = _synchronize_make(
+            base_source,
+            _find_base_env_init(base_module),
+            make_source,
+            _find_make(make_module),
         )
-    except ApiSyncError as error:
-        print(f"Environment API sync check failed: {error}", file=sys.stderr)
+        if synchronized != make_source:
+            MAKE_PATH.write_text(synchronized)
+            print(
+                "Updated mani_skill/envs/make.py from BaseEnv.__init__. "
+                "Stage the changes and run pre-commit again."
+            )
+        else:
+            print("BaseEnv.__init__ and make are synchronized.")
+    except (ApiSyncError, OSError) as error:
+        print(f"Environment API synchronization failed: {error}", file=sys.stderr)
         return 1
-
-    print("BaseEnv.__init__ and make arguments and documentation are synchronized.")
     return 0
 
 

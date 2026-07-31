@@ -1,6 +1,14 @@
-# Defines automated checks run before repository changes are committed.
+# Defines automated checks and fixes run before repository changes are committed.
 
 repos:
+  - repo: local
+    hooks:
+      - id: check-env-api-sync
+        name: synchronize BaseEnv.__init__ into make
+        entry: python tools/pre_commit/check_env_api_sync.py
+        language: python
+        pass_filenames: false
+        files: ^(mani_skill/envs/(base_env|make)\.py|tools/pre_commit/check_env_api_sync\.py)$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
@@ -26,9 +34,3 @@ repos:
         entry: uv run --frozen pyright
         language: system
         pass_filenames: false
-      - id: check-env-api-sync
-        name: check BaseEnv and make API synchronization
-        entry: python tools/pre_commit/check_env_api_sync.py
-        language: python
-        pass_filenames: false
-        files: ^(mani_skill/envs/(base_env|make)\.py|tools/pre_commit/check_env_api_sync\.py)$
