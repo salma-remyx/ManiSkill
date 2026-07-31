@@ -48,7 +48,7 @@ class BaseSim(ABC):
 
     id: str
     """The id of the simulation backend."""
-    sim_device_torch: torch.device
+    physics_device_torch: torch.device
     """The torch device that the physics engine returns data on."""
     render_device_torch: torch.device
     """The torch device that the renderer returns data on."""
@@ -63,35 +63,37 @@ class BaseSim(ABC):
     """The dictionary of actors in the simulation backend."""
     articulations: dict[str, Articulation]
     """The dictionary of articulations in the simulation backend."""
-    _gpu_sim_initialized: bool = False
+    _gpu_sim_initialized: bool
     """whether the GPU simulation has been initialized"""
-    _physics_steps: int = 0
+    _physics_steps: int
     """The number of physics steps taken."""
-    _viewer: Any | None = None
+    _viewer: Any | None
     """The viewer for the scene."""
 
     def __init__(
         self,
         num_envs: int = 1,
         cfg: BaseSimConfig | None = None,
-        sim_device_torch: torch.device | None = None,
+        physics_device_torch: torch.device | None = None,
         render_device_torch: torch.device | None = None,
     ):
-        if sim_device_torch is None:
-            sim_device_torch = torch.device("cpu")
+        if physics_device_torch is None:
+            physics_device_torch = torch.device("cpu")
         if render_device_torch is None:
             render_device_torch = torch.device("cpu")
         self.num_envs = num_envs
         self.cfg = cfg or BaseSimConfig()
-        self.sim_device_torch = sim_device_torch
+        self.physics_device_torch = physics_device_torch
         self.render_device_torch = render_device_torch
-        if self.sim_device_torch.type == "cuda":
+        if self.physics_device_torch.type == "cuda":
             self.batch_sim_enabled = True
         else:
             self.batch_sim_enabled = False
         self.actors = dict()
         self.articulations = dict()
         self._gpu_sim_initialized = False
+        self._physics_steps = 0
+        self._viewer = None
 
     # ---------------------------------------------------------------------------- #
     # Shared derived properties
