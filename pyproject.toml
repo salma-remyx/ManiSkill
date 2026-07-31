@@ -48,6 +48,9 @@ newton = [
     "mujoco-warp>=3.11.0",
     "newton>=1.4.0",
 ]
+gymnasium = [
+    "gymnasium>=1.3.0",
+]
 
 [dependency-groups]
 dev = [
@@ -65,7 +68,6 @@ docs = [
     "sphinx-autobuild>=2025.8.25",
     "sphinx-copybutton>=0.5.2",
 ]
-
 
 [build-system]
 requires = ["hatchling"]
