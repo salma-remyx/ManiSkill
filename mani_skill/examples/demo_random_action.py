@@ -61,8 +61,8 @@ def main(args: Args):
     env.reset(seed=args.seed, options=dict(reconfigure=True))
 
     while True:
-        action = env.action_space.sample() if env.action_space is not None else None
-        _, reward, terminated, truncated, info = env.step(action)
+        # action = env.action_space.sample() if env.action_space is not None else None
+        _, reward, terminated, truncated, info = env.step(None)
         if verbose:
             print("reward", reward)
             print("terminated", terminated)

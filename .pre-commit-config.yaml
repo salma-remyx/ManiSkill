@@ -21,6 +21,11 @@ repos:
 
   - repo: local
     hooks:
+      - id: pyright
+        name: pyright
+        entry: uv run --frozen pyright
+        language: system
+        pass_filenames: false
       - id: check-env-api-sync
         name: check BaseEnv and make API synchronization
         entry: python tools/pre_commit/check_env_api_sync.py

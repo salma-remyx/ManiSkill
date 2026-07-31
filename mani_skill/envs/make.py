@@ -1,6 +1,7 @@
 # Provides a typed ManiSkill wrapper around Gymnasium style environment construction.
 
-import gymnasium as gym
+from mani_skill.envs import BaseEnv
+from mani_skill.envs.registry import REGISTERED_ENVS
 
 
 def make(
@@ -12,7 +13,7 @@ def make(
     num_envs: int = 1,
     physics_backend: str = "auto",
     render_backend: str = "auto",
-) -> gym.Env:
+) -> BaseEnv:
     """Create a registered ManiSkill environment.
 
     Args:
@@ -27,8 +28,7 @@ def make(
     Returns:
         The constructed Gymnasium environment.
     """
-    return gym.make(
-        env_id,
+    return REGISTERED_ENVS[env_id](
         obs_mode=obs_mode,
         reward_mode=reward_mode,
         render_mode=render_mode,

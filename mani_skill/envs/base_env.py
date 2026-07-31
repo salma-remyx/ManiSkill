@@ -1,11 +1,11 @@
-# Defines the base class and common construction options for ManiSkill environments.
+# Defines the base class and common construction options for ManiSkill envs, based on Gymnasium
 
-import gymnasium as gym
+from typing import Any, Sequence
 
 from mani_skill.sim.core.base_sim import BaseSimConfig
 
 
-class BaseEnv(gym.Env):
+class BaseEnv:
     def __init__(
         self,
         *,
@@ -40,3 +40,20 @@ class BaseEnv(gym.Env):
     def _default_sim_config(self) -> BaseSimConfig:
         """Return the default simulation configuration for this environment."""
         return BaseSimConfig()
+
+    def step(self, action: Any) -> tuple[Any, Any, Any, Any, Any]:
+        return None, None, None, None, None
+
+    def reset(
+        self,
+        *,
+        seed: int | Sequence[int] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[Any, Any]:
+        return None, None
+
+    def render(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
