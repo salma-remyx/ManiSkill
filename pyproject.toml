@@ -1,3 +1,5 @@
+# Defines package metadata, dependencies, and tool configuration for ManiSkill.
+
 [project]
 name = "mani_skill"
 description = "ManiSkill3: A Unified Benchmark for Generalizable Manipulation Skills"
@@ -54,6 +56,7 @@ dev = [
     "isort>=8.0.1",
     "nvidia-ml-py>=13.610.43",
     "pre-commit>=4.6.0",
+    "pyright[nodejs]>=1.1.411",
     "pytest>=9.0.3",
 ]
 docs = [
@@ -79,6 +82,10 @@ markers = [
     "gpu_sim: marks tests as using the GPU simulation (deselect with '-m \"not gpu_sim\"')",
     "serial",
 ]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
 
 [tool.ruff.lint]
 select = [
