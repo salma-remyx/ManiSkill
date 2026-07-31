@@ -1,5 +1,7 @@
 # Defines the Newton simulation backend and its construction entry points.
 
+import newton
+
 from mani_skill.sim.core.base_sim import BaseSim, BaseSimConfig
 from mani_skill.sim.newton.builders import (
     NewtonActorBuilder,
@@ -32,13 +34,15 @@ class NewtonSim(BaseSim):
             render_device,
         )
 
+        self._scene_mb = newton.ModelBuilder()
+
     def create_actor_builder(self) -> NewtonActorBuilder:
         """Create an empty Newton actor builder."""
-        return NewtonActorBuilder()
+        return NewtonActorBuilder(self._scene_mb)
 
     def create_articulation_builder(self) -> NewtonArticulationBuilder:
         """Create an empty Newton articulation builder."""
-        return NewtonArticulationBuilder()
+        return NewtonArticulationBuilder(self._scene_mb)
 
     def create_articulation_builder_from_urdf(
         self, urdf_path: str
@@ -48,10 +52,10 @@ class NewtonSim(BaseSim):
         Args:
             urdf_path: Path reserved for the future Newton URDF loader.
         """
-        return NewtonArticulationBuilder()
+        return NewtonArticulationBuilder(self._scene_mb)
 
     def compile_render_scene(self) -> None:
-        """Leave render-scene compilation empty until Newton rendering is implemented."""
+        pass
 
     def can_render(self) -> bool:
         """Return whether the Newton rendering scaffold can render."""

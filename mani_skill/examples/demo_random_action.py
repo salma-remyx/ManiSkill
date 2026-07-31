@@ -59,7 +59,7 @@ def main(args: Args):
         render_backend=args.render_backend,
     )
 
-    env.reset(seed=args.seed, options=dict(reconfigure=True))
+    env.reset(seed=args.seed, reconfigure=True)
 
     while True:
         # action = env.action_space.sample() if env.action_space is not None else None

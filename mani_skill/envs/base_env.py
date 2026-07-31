@@ -2,6 +2,7 @@
 
 from typing import Any, Sequence, cast
 
+from mani_skill.envs.scene import ManiSkillScene
 from mani_skill.sim.core.base_sim import BaseSim, BaseSimConfig
 from mani_skill.sim.core.utils.backend import BackendInfo, parse_sim_and_render_backend
 
@@ -14,6 +15,7 @@ class BaseEnv:
     backend: BackendInfo
     _physics_sim: BaseSim
     _render_sim: BaseSim
+    scene: ManiSkillScene
     sim_config: BaseSimConfig
 
     def __init__(
@@ -81,6 +83,8 @@ class BaseEnv:
             options: Additional options to pass to the environment's reset function. Used by custom
                 environments to pass in additional information.
         """
+        if reconfigure:
+            self._reconfigure()
         return None, None
 
     def render(self) -> None:
@@ -131,6 +135,11 @@ class BaseEnv:
             raise ValueError(
                 f"Unrecognized render backend package: {self.backend.render_backend_package}"
             )
+        self.scene = ManiSkillScene(
+            physics_sim=self._physics_sim,
+            render_sim=self._render_sim,
+        )
+        self._load_scene()
 
     # ------------------------------------------------------------
     # Task-specific methods
