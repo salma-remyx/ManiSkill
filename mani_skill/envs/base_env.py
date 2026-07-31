@@ -23,8 +23,8 @@ class BaseEnv:
         reward_mode: str = "normalized_dense",
         render_mode: str | None = None,
         num_envs: int = 1,
-        physics_backend: str = "newton:mj_cpu",
-        render_backend: str = "newton:warp",
+        physics_backend: str = "newton.mj_cpu",
+        render_backend: str = "newton.warp",
     ):
         """Initialize a ManiSkill environment.
 

@@ -16,10 +16,10 @@ class Args:
     obs_mode: Annotated[str, tyro.conf.arg(aliases=["-o"])] = "none"
     """Observation mode"""
 
-    physics_backend: Annotated[str, tyro.conf.arg(aliases=["-b"])] = "newton:mj_warp"
+    physics_backend: Annotated[str, tyro.conf.arg(aliases=["-b"])] = "newton.mj_warp"
     """Which simulation backend to use. Can be 'auto', 'cpu', 'gpu'"""
 
-    render_backend: Annotated[str, tyro.conf.arg(aliases=["-rb"])] = "newton:warp"
+    render_backend: Annotated[str, tyro.conf.arg(aliases=["-rb"])] = "newton.warp"
     """Which render backend to use. Can be 'gpu', 'cpu', 'none'"""
 
     num_envs: Annotated[int, tyro.conf.arg(aliases=["-n"])] = 1
