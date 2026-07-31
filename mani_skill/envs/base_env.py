@@ -1,8 +1,9 @@
 # Defines the base class and common construction options for ManiSkill envs, based on Gymnasium
 
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
-from mani_skill.sim.core.base_sim import BaseSimConfig
+from mani_skill.sim.core.base_sim import BaseSim, BaseSimConfig
+from mani_skill.sim.core.utils.backend import BackendInfo, parse_sim_and_render_backend
 
 
 class BaseEnv:
@@ -10,8 +11,10 @@ class BaseEnv:
     reward_mode: str
     render_mode: str | None
     num_envs: int = 1
-    physics_backend: str
-    render_backend: str
+    backend: BackendInfo
+    _physics_sim: BaseSim
+    _render_sim: BaseSim
+    sim_config: BaseSimConfig
 
     def __init__(
         self,
@@ -37,8 +40,9 @@ class BaseEnv:
         self.reward_mode = reward_mode
         self.render_mode = render_mode
         self.num_envs = num_envs
-        self.physics_backend = physics_backend
-        self.render_backend = render_backend
+        self.backend = parse_sim_and_render_backend(physics_backend, render_backend)
+        # TODO (stao): handle sim config overrides
+        self.sim_config = self._default_sim_config
 
     @property
     def _default_sim_config(self) -> BaseSimConfig:
@@ -90,7 +94,43 @@ class BaseEnv:
     # ------------------------------------------------------------
 
     def _reconfigure(self) -> None:
-        pass
+        # TODO (stao): add a sim backend registry?
+
+        if self.backend.physics_backend_package == "newton":
+            from mani_skill.sim.newton.sim import NewtonSim, NewtonSimConfig
+
+            self._physics_sim = NewtonSim(
+                num_envs=self.num_envs,
+                cfg=cast(NewtonSimConfig, self.sim_config),
+                physics_device=self.backend.physics_device_id,
+                render_device=self.backend.render_device_id,
+            )
+        else:
+            raise ValueError(
+                f"Unrecognized physics backend package: {self.backend.physics_backend_package}"
+            )
+
+        if self.backend.render_backend_package == "newton":
+            from mani_skill.sim.newton.sim import NewtonSim, NewtonSimConfig
+
+            if (
+                self.backend.render_backend_package
+                == self.backend.physics_backend_package
+            ):
+                self._render_sim = self._physics_sim
+            else:
+                from mani_skill.sim.newton.sim import NewtonSim
+
+                self._render_sim = NewtonSim(
+                    num_envs=self.num_envs,
+                    cfg=cast(NewtonSimConfig, self.sim_config),
+                    physics_device=self.backend.physics_device_id,
+                    render_device=self.backend.render_device_id,
+                )
+        else:
+            raise ValueError(
+                f"Unrecognized render backend package: {self.backend.render_backend_package}"
+            )
 
     # ------------------------------------------------------------
     # Task-specific methods

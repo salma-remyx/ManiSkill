@@ -1,3 +1,5 @@
+# Defines the shared configuration and interface for simulation backends.
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -176,7 +178,7 @@ class BaseSim(ABC):
     # Rendering code
     # ---------------------------------------------------------------------------- #
     @abstractmethod
-    def can_render(self):
+    def can_render(self) -> bool:
         """
         Whether the simulation backend can render.
         """
