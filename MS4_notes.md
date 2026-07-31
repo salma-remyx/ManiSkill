@@ -13,6 +13,22 @@ a lot of slightly randomly assorted notes on some sim framework design decisions
 
 I spent a month trying to adapt ManiSkill3 code to be multi-physics and rendering, and that turned out to be a terrible idea. A lot of MS3 code was never written in a way to be amenable to the ambitions of MS4, and we still have a lot of legacy MS2 code that was even harder to try and translate. But the first failure here was a good exercise in understanding how different simulators (newton, sapien etc.) work and what their APIs/contracts are like. Rewriting a lot of the internal sim code for MS4 has since been incredibly refreshing and fun.
 
+### Builder APIs and multi-physics + multi-renderer support
+
+I really like builder APIs as done in SAPIEN and Newton (and probably much of the game engine industry). Programatically being able to construct objects is super flexible in general, and permits all kinds of unplanned possibilities when you let python control scene/asset creation.
+
+How does one make multiple different builder APIs work? For MS4 my rough solution is to generally decouple builders into two separate parts, physics and rendering. Newton is a little complicated since their builder APIs tend to mix the two together e.g. add_shape_box will add both a collision and visual box shape. SAPIEN crams both collision and visual shape building APIs into a single actor builder class.
+
+I did try to find some elegant solution that retains the way SAPIEN has separate collision/visual shape building APIs in one builder class, but turned into a big nightmare. The naive solution of simply just having two separate builder classes was much easier?
+
+<!-- TODO (stao): actually maybre one builder class still, don't inherit sapien's at all. Define a contract for physics builder and render builder? -->
+
+```python
+def create_actor_builder(self):
+    physics_builder = self.physics_sim.create_actor_builder()
+    render_builder = self.render_sim.create_actor_builder()
+```
+
 ### Notes on being tensor backend agnostic
 
 Every popular sim framework usually has some default "tensor backend", whether it's torch, warp, jax etc. Usually this is fine to assume some backend (e.g. IsaacLab is torch based) and there are not that many drawbacks to just using torch. But as an exercise in my programming/system design/simulation understanding skills, and to cover that small 1% case of "we can't use torch", I'm going to try and make ManiSkill4 be tensor backend agnostic.
