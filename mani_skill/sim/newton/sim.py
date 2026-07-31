@@ -12,7 +12,7 @@ class NewtonSim(BaseSim):
         self,
         num_envs: int = 1,
         cfg: NewtonSimConfig | None = None,
-        sim_device_torch: torch.device | None = None,
+        physics_device_torch: torch.device | None = None,
         render_device_torch: torch.device | None = None,
     ):
-        super().__init__(num_envs, cfg, sim_device_torch, render_device_torch)
+        super().__init__(num_envs, cfg, physics_device_torch, render_device_torch)
