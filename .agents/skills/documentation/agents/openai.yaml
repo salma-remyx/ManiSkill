@@ -1,0 +1,5 @@
+# Provides user-facing metadata for the documentation skill.
+interface:
+  display_name: "Documentation"
+  short_description: "Maintain documentation for the codebase"
+  default_prompt: "Use $documentation to add and verify comments, docstrings, and documentation markdown files"
