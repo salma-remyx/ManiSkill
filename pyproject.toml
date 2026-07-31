@@ -56,7 +56,7 @@ dev = [
     "isort>=8.0.1",
     "nvidia-ml-py>=13.610.43",
     "pre-commit>=4.6.0",
-    "pyright[nodejs]>=1.1.411",
+    "pyright>=1.1.411",
     "pytest>=9.0.3",
 ]
 docs = [
@@ -84,8 +84,12 @@ markers = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.11"
-typeCheckingMode = "basic"
+exclude = [
+    "**/__pycache__",
+    "mani_skill/assets",
+]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
 
 [tool.ruff.lint]
 select = [
