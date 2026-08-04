@@ -1,16 +1,16 @@
 # Defines the base class and common construction options for ManiSkill envs, based on Gymnasium
 
-from typing import Any, Sequence, cast
+from typing import Any, Literal, Sequence, cast
 
 from mani_skill.envs.scene import ManiSkillScene
-from mani_skill.sim.core.base_sim import BaseSim, BaseSimConfig
+from mani_skill.sim.core.base_sim import RENDER_MODES, BaseSim, BaseSimConfig
 from mani_skill.sim.core.utils.backend import BackendInfo, parse_sim_and_render_backend
 
 
 class BaseEnv:
     obs_mode: str
     reward_mode: str
-    render_mode: str | None
+    render_mode: Literal["human", "rgb_array"] | None
     num_envs: int = 1
     backend: BackendInfo
     _physics_sim: BaseSim
@@ -23,20 +23,22 @@ class BaseEnv:
         *,
         obs_mode: str = "state",
         reward_mode: str = "normalized_dense",
-        render_mode: str | None = None,
+        render_mode: RENDER_MODES | None = None,
         num_envs: int = 1,
-        physics_backend: str = "newton.mj_cpu",
-        render_backend: str = "newton.warp",
+        physics_backend: str = "newton.mj_warp:cuda",
+        render_backend: str = "newton.warp:cuda",
     ):
         """Initialize a ManiSkill environment.
 
         Args:
             obs_mode: The mode of observation to use.
             reward_mode: The mode of reward to use.
-            render_mode: The mode of rendering to use.
+            render_mode: The mode of rendering to use. This is the mode used when calling render().
+                Note this rendering is purely for qualitative/visualization purposes.
             num_envs: The number of environments to run.
             physics_backend: The backend to use for physics simulation.
-            render_backend: The backend to use for rendering.
+            render_backend: The backend to use for rendering. This determines what is used for
+                rendering images for both qualitative/visualization as well as for the observation.
         """
         self.obs_mode = obs_mode
         self.reward_mode = reward_mode
@@ -45,6 +47,8 @@ class BaseEnv:
         self.backend = parse_sim_and_render_backend(physics_backend, render_backend)
         # TODO (stao): handle sim config overrides
         self.sim_config = self._default_sim_config
+        self.scene = None  # type: ignore
+        self.reset(seed=2026, reconfigure=True)
 
     @property
     def _default_sim_config(self) -> BaseSimConfig:
@@ -56,6 +60,7 @@ class BaseEnv:
     # ------------------------------------------------------------
 
     def step(self, action: Any) -> tuple[Any, Any, Any, Any, Any]:
+        self.step_action()
         return None, None, None, None, None
 
     def reset(
@@ -85,6 +90,7 @@ class BaseEnv:
         """
         if reconfigure:
             self._reconfigure()
+        self._initialize_episode()
         return None, None
 
     def render(self) -> None:
@@ -94,11 +100,29 @@ class BaseEnv:
         pass
 
     # ------------------------------------------------------------
+    # Physics/stepping methods
+    # ------------------------------------------------------------
+    def step_action(self) -> None:
+        assert self.scene is not None
+        self.scene.physics_sim.control_step()
+
+    # ------------------------------------------------------------
+    # Rendering methods
+    # ------------------------------------------------------------
+
+    def render_human(self) -> Any:
+        assert self.scene is not None
+        return self.scene.render_sim.render_human()
+
+    # ------------------------------------------------------------
     # Environment management methods
     # ------------------------------------------------------------
 
     def _reconfigure(self) -> None:
         # TODO (stao): add a sim backend registry?
+        if self.scene is not None:  # pyright: ignore[reportUnnecessaryComparison]
+            self.scene.close()
+            self.scene = None  # type: ignore
 
         if self.backend.physics_backend_package == "newton":
             from mani_skill.sim.newton.sim import NewtonSim, NewtonSimConfig
@@ -108,6 +132,7 @@ class BaseEnv:
                 cfg=cast(NewtonSimConfig, self.sim_config),
                 physics_device=self.backend.physics_device_id,
                 render_device=self.backend.render_device_id,
+                render_mode=self.render_mode,
             )
         else:
             raise ValueError(
@@ -130,6 +155,7 @@ class BaseEnv:
                     cfg=cast(NewtonSimConfig, self.sim_config),
                     physics_device=self.backend.physics_device_id,
                     render_device=self.backend.render_device_id,
+                    render_mode=self.render_mode,
                 )
         else:
             raise ValueError(
@@ -140,6 +166,9 @@ class BaseEnv:
             render_sim=self._render_sim,
         )
         self._load_scene()
+
+        self.scene.physics_sim.compile_physical_scene()
+        self.scene.render_sim.compile_render_scene()
 
     # ------------------------------------------------------------
     # Task-specific methods

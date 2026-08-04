@@ -2,6 +2,7 @@
 
 from mani_skill.envs import BaseEnv
 from mani_skill.envs.registry import REGISTERED_ENVS
+from mani_skill.sim.core.base_sim import RENDER_MODES
 
 
 def make(
@@ -9,10 +10,10 @@ def make(
     *,
     obs_mode: str = "state",
     reward_mode: str = "normalized_dense",
-    render_mode: str | None = None,
+    render_mode: RENDER_MODES | None = None,
     num_envs: int = 1,
-    physics_backend: str = "newton.mj_cpu",
-    render_backend: str = "newton.warp",
+    physics_backend: str = "newton.mj_warp:cuda",
+    render_backend: str = "newton.warp:cuda",
 ) -> BaseEnv:
     """Create a registered ManiSkill environment.
 
@@ -20,10 +21,14 @@ def make(
         env_id: ID of the registered environment to create.
         obs_mode: The mode of observation to use.
         reward_mode: The mode of reward to use.
-        render_mode: The mode of rendering to use.
+        render_mode: The mode of rendering to use. This is the mode used when calling
+            render(). Note this rendering is purely for qualitative/visualization
+            purposes.
         num_envs: The number of environments to run.
         physics_backend: The backend to use for physics simulation.
-        render_backend: The backend to use for rendering.
+        render_backend: The backend to use for rendering. This determines what is used
+            for rendering images for both qualitative/visualization as well as for the
+            observation.
 
     Returns:
         The environment.

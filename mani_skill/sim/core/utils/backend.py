@@ -25,8 +25,14 @@ def _parse_backend_device_id(
     if "." in backend:
         package_name, backend_name = backend.split(".")
         parts = backend_name.split(":")
-        if len(parts) == 2:
-            return package_name, parts[0], parts[1]
+        if len(parts) >= 2:
+            if parts[1] == "cpu":
+                return package_name, parts[0], parts[1]
+            if parts[1] == "cuda":
+                device_id = "0"
+                if len(parts) == 3:
+                    device_id = parts[2]
+                return package_name, parts[0], f"cuda:{device_id}"
         return package_name, backend_name, None
     else:
         # Backward compatability for old backend format
@@ -59,7 +65,8 @@ def _parse_backend_device_id(
                 return "sapien", "sapien_cpu", None
     raise ValueError(
         f"Invalid backend: {backend}. Should be in the format "
-        "<package_name.backend_name> or <package_name.backend_name:device_id>."
+        "<package_name.backend_name> or <package_name.backend_name:cpu> or "
+        "<package_name.backend_name:cuda:<device_id>>."
     )
 
 
@@ -75,11 +82,9 @@ def parse_sim_and_render_backend(
     )
     return BackendInfo(
         physics_backend_package=package_name,
-        physics_backend=f"{package_name}.{physics_backend}"
-        + (f":{sim_device_id}" if sim_device_id is not None else ""),
+        physics_backend=f"{package_name}.{physics_backend}",
         physics_device_id=sim_device_id,
         render_backend_package=render_package_name,
-        render_backend=f"{render_package_name}.{render_backend}"
-        + (f":{render_device_id}" if render_device_id is not None else ""),
+        render_backend=f"{render_package_name}.{render_backend}",
         render_device_id=render_device_id,
     )

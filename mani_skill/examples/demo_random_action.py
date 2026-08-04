@@ -6,6 +6,7 @@ import tyro
 
 from mani_skill.envs import tasks  # noqa: F401 # pyright: ignore[reportUnusedImport]
 from mani_skill.envs.make import make
+from mani_skill.sim.core.base_sim import RENDER_MODES
 
 
 @dataclass
@@ -25,7 +26,7 @@ class Args:
     num_envs: Annotated[int, tyro.conf.arg(aliases=["-n"])] = 1
     """Number of environments to run."""
 
-    render_mode: str | None = "rgb_array"
+    render_mode: RENDER_MODES | None = "rgb_array"
     """Render mode"""
 
     pause: Annotated[bool, tyro.conf.arg(aliases=["-p"])] = False
@@ -43,8 +44,6 @@ class Args:
 
 def main(args: Args):
     np.set_printoptions(suppress=True, precision=3)
-    if args.render_mode == "none":
-        args.render_mode = None
     if isinstance(args.seed, int):
         args.seed = [args.seed]
     if args.seed is not None:
@@ -59,7 +58,7 @@ def main(args: Args):
         render_backend=args.render_backend,
     )
 
-    env.reset(seed=args.seed, reconfigure=True)
+    env.reset(seed=args.seed, reconfigure=False)
 
     while True:
         # action = env.action_space.sample() if env.action_space is not None else None
@@ -70,10 +69,10 @@ def main(args: Args):
             print("truncated", truncated)
             print("info", info)
         if args.render_mode == "human":
-            env.render()
-        if args.render_mode is None or args.render_mode != "human":
-            if (terminated | truncated).any():
-                break
+            env.render_human()
+        # if args.render_mode is None or args.render_mode != "human":
+        #     if (terminated | truncated).any():
+        #         break
     env.close()
 
 

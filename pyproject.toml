@@ -35,6 +35,7 @@ dependencies = [
     "transforms3d>=0.4.2",
     "trimesh>=4.12.2",
     "tyro>=1.0.13",
+    "warp-lang>=1.15.0",
 ]
 
 [project.optional-dependencies]
@@ -43,8 +44,10 @@ sapien = [
 ]
 newton = [
     "imgui-bundle>=1.92.801",
-    "mujoco-warp>=3.11.0",
+    "mujoco==3.10",
+    "mujoco-warp==3.10.0.2",
     "newton>=1.4.0",
+    "pyglet>2",
 ]
 gymnasium = [
     "gymnasium>=1.3.0",
@@ -90,6 +93,13 @@ exclude = [
 include = ["mani_skill"]
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+reportPrivateUsage = "none"
+
+[[tool.pyright.executionEnvironments]]
+root = "."
 
 [tool.ruff.lint]
 select = [

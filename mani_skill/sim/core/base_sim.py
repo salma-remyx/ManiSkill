@@ -5,12 +5,16 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
-from mani_skill.sim.core.builders.actor import BaseActorBuilder
-from mani_skill.sim.core.builders.articulation import BaseArticulationBuilder
 from mani_skill.sim.core.entities.actor import Actor
 from mani_skill.sim.core.entities.articulation import Articulation
+
+if TYPE_CHECKING:
+    from mani_skill.sim.core.builders.actor import ActorBuilder
+
+RENDER_MODES = Literal["human", "rgb_array"]
+"""The modes of rendering to use that are available."""
 
 
 @dataclass(frozen=True)
@@ -23,7 +27,7 @@ class BaseSimConfig:
     """Controls the spacing between parallel environments when simulating on GPU in meters.
     Increase this value if you expect objects in one parallel environment to impact objects
     within this spacing distance."""
-    sim_freq: int = 120
+    sim_freq: int = 240
     """simulation frequency (Hz)."""
     control_freq: int = 60
     """control frequency (Hz). Every control step (e.g. env.step) contains
@@ -54,13 +58,15 @@ class BaseSim(ABC):
     """The torch device that the renderer returns data on."""
     cfg: BaseSimConfig
     """The configuration for the simulation backend."""
+    render_mode: RENDER_MODES | None
+    """The mode of rendering to use."""
     num_envs: int
     """The number of environments to simulate."""
     batch_sim_enabled: bool
     """Whether the simulation backend is batched. Usually this refers to a parallelized simulation
     like a GPU simulation."""
-    actors: dict[str, Actor]
-    """The dictionary of actors in the simulation backend."""
+    actors: dict[str, Any]
+    """The dictionary of backend-specific actors in the simulation backend."""
     articulations: dict[str, Articulation]
     """The dictionary of articulations in the simulation backend."""
     _gpu_sim_initialized: bool
@@ -74,6 +80,7 @@ class BaseSim(ABC):
         self,
         num_envs: int = 1,
         cfg: BaseSimConfig | None = None,
+        render_mode: RENDER_MODES | None = None,
         physics_device: Any = None,
         render_device: Any = None,
     ):
@@ -83,6 +90,7 @@ class BaseSim(ABC):
             render_device = "cpu"
         self.num_envs = num_envs
         self.cfg = cfg or BaseSimConfig()
+        self.render_mode = render_mode
         self.physics_device = physics_device
         self.render_device = render_device
         self.batch_sim_enabled = num_envs > 1
@@ -105,33 +113,6 @@ class BaseSim(ABC):
         """The total simulation time passed in seconds. Equal to physics_steps * timestep."""
         return self._physics_steps * self.timestep
 
-    # ---------------------------------------------------------------------------- #
-    # Code for adding builders to a scene for rendering/physics simulation
-    # ---------------------------------------------------------------------------- #
-    @abstractmethod
-    def create_actor_builder(self) -> BaseActorBuilder:
-        """
-        Creates an ActorBuilder object that can be used to build actors in this scene.
-        """
-
-    @abstractmethod
-    def create_articulation_builder(self) -> BaseArticulationBuilder:
-        """
-        Creates an ArticulationBuilder object that can be used to build articulations in
-        this scene.
-        """
-
-    @abstractmethod
-    def create_articulation_builder_from_urdf(
-        self, urdf_path: str
-    ) -> BaseArticulationBuilder:
-        """
-        Creates an articulation builder from a URDF file.
-
-        Args:
-            urdf_path: The path to the URDF file.
-        """
-
     def remove_actor(self, actor: Actor) -> None:
         """
         Removes an actor from the simulation scene.
@@ -141,6 +122,31 @@ class BaseSim(ABC):
     def remove_articulation(self, articulation: Articulation) -> None:
         """
         Removes an articulation from the simulation scene.
+        """
+        raise NotImplementedError()
+
+    def close(self) -> None:
+        """
+        Closes the simulation backend.
+        """
+        raise NotImplementedError()
+
+    def add_actor_builder(
+        self,
+        builder: ActorBuilder,
+        *,
+        build_physics: bool = True,
+        build_render: bool = True,
+    ) -> Any:
+        """Compile an actor description into this simulation backend.
+
+        Args:
+            builder: Backend-neutral actor description to compile.
+            build_physics: Whether to compile collision and physical data.
+            build_render: Whether to compile visual data.
+
+        Returns:
+            The backend-specific actor bound to the compiled data.
         """
         raise NotImplementedError()
 
@@ -206,6 +212,25 @@ class BaseSim(ABC):
         """
         raise NotImplementedError()
 
+    def render(self) -> None:
+        if self.render_mode == "human":
+            self.render_human()
+        elif self.render_mode == "rgb_array":
+            self.render_rgb_array()
+
+    def render_rgb_array(self) -> Any:
+        """
+        Renders the simulation scene and returns an RGB array for
+        qualitative/visualization purposes.
+        """
+        raise NotImplementedError()
+
+    def render_human(self) -> Any:
+        """
+        Renders the simulation scene for human viewing. Usually this should open a GUI.
+        """
+        raise NotImplementedError()
+
     # ---------------------------------------------------------------------------- #
     # Code for compiling simulator scene for physical simulation
     # ---------------------------------------------------------------------------- #
@@ -220,6 +245,14 @@ class BaseSim(ABC):
     # ---------------------------------------------------------------------------- #
     # Physical simulation code
     # ---------------------------------------------------------------------------- #
+
+    @abstractmethod
+    def control_step(self) -> None:
+        """
+        Steps the simulation forward by one control step, which contains (sim_freq / control_freq)
+        physics steps.
+        """
+
     @abstractmethod
     def physics_step(self):
         """

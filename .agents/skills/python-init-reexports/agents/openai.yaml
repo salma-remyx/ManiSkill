@@ -1,0 +1,4 @@
+interface:
+  display_name: "Python Init Re-exports"
+  short_description: "Use explicit same-name package re-exports"
+  default_prompt: "Use $python-init-reexports to update this package initializer with explicit convenience re-exports."
