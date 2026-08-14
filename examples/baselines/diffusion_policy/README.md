@@ -48,10 +48,22 @@ python train_rgbd.py --env-id PickCube-v1 \
   --track
 ```
 
+## Fast deterministic policy via score regularization (SRPO)
+
+Sampling from a diffusion policy is slow at control time (100 denoising steps per action chunk). `--srpo` adds an optional distillation phase after diffusion pretraining that extracts a deterministic MLP policy from the frozen diffusion behavior model, following [Score Regularized Policy Optimization through Diffusion Behavior](https://arxiv.org/abs/2310.07297). The distilled policy regresses onto the diffusion model's noise prediction on its own perturbed actions (score regularization), so no reward or critic is needed, and inference becomes a single forward pass.
+
+```bash
+python train.py --env-id PickCube-v1 \
+  --demo-path ~/.maniskill/demos/PickCube-v1/motionplanning/trajectory.state.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "physx_cpu" --num-demos 100 --max_episode_steps 100 \
+  --total_iters 30000 --srpo --srpo-iters 30000
+```
+
+The distilled policy is evaluated and checkpointed alongside the diffusion policy (`srpo_eval/*` in TensorBoard/W&B, `checkpoints/srpo_best_eval_*` on disk). `--srpo-weight-mode` selects the paper's time-dependent score weighting (`stable`, `vds`, or `score`).
+
 ## Citation
 
-If you use this baseline please cite the following
-```
+If you use this baseline please cite the following```
 @inproceedings{DBLP:conf/rss/ChiFDXCBS23,
   author       = {Cheng Chi and
                   Siyuan Feng and

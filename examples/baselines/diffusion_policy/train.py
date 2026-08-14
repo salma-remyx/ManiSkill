@@ -69,6 +69,19 @@ class Args:
     unet_dims: List[int] = field(default_factory=lambda: [64, 128, 256]) # default setting is about ~4.5M params
     n_groups: int = 8 # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
 
+    # Score-regularized policy distillation (SRPO) arguments
+    srpo: bool = False
+    """if toggled, after diffusion pretraining distill a deterministic policy from the
+    diffusion behavior model via score regularization (fast single-forward-pass inference)"""
+    srpo_iters: int = 30000
+    """number of distillation iterations to run after diffusion pretraining"""
+    srpo_hidden_dim: int = 512
+    """hidden width of the distilled deterministic policy MLP"""
+    srpo_weight_mode: str = "stable"
+    """SRPO score weighting, one of 'stable' (wt=1), 'vds' (wt=std^2), 'score' (wt=alpha/std)"""
+    srpo_lr: float = 1e-4
+    """the learning rate of the distilled deterministic policy"""
+
     # Environment/experiment specific arguments
     max_episode_steps: Optional[int] = None
     """Change the environments' max_episode_steps to this value. Sometimes necessary if the demonstrations being imitated are too short. Typically the default
@@ -254,6 +267,39 @@ class Agent(nn.Module):
         end = start + self.act_horizon
         return noisy_action_seq[:, start:end] # (B, act_horizon, act_dim)
 
+class ScoreRegularizedAgent(nn.Module):
+    """Deterministic policy distilled from a pretrained diffusion policy (SRPO).
+
+    Wraps :class:`~diffusion_policy.score_regularized_policy.ScoreRegularizedPolicy`
+    so it shares the diffusion agent's observation conditioning and action
+    shapes, and exposes the same ``get_action`` interface the evaluation code
+    calls. Inference is a single forward pass instead of the 100-step DDPM
+    sampling loop.
+    """
+
+    def __init__(self, diffusion_agent: Agent, args, global_cond_dim: int):
+        super().__init__()
+        from diffusion_policy.score_regularized_policy import ScoreRegularizedPolicy
+        self.obs_horizon = diffusion_agent.obs_horizon
+        self.act_horizon = diffusion_agent.act_horizon
+        self.policy = ScoreRegularizedPolicy(
+            noise_pred_net=diffusion_agent.noise_pred_net,
+            scheduler=diffusion_agent.noise_scheduler,
+            act_dim=diffusion_agent.act_dim,
+            pred_horizon=diffusion_agent.pred_horizon,
+            global_cond_dim=global_cond_dim,
+            hidden_dim=args.srpo_hidden_dim,
+            weight_mode=args.srpo_weight_mode,
+        )
+
+    def compute_loss(self, obs_seq, action_seq):
+        obs_cond = obs_seq.flatten(start_dim=1) # (B, obs_horizon * obs_dim)
+        return self.policy.loss(obs_cond)
+
+    def get_action(self, obs_seq):
+        obs_cond = obs_seq.flatten(start_dim=1) # (B, obs_horizon * obs_dim)
+        return self.policy.get_action(obs_cond, self.act_horizon, self.obs_horizon)
+
 def save_ckpt(run_name, tag):
     os.makedirs(f'runs/{run_name}/checkpoints', exist_ok=True)
     ema.copy_to(ema_agent.parameters())
@@ -432,6 +478,76 @@ if __name__ == "__main__":
 
     evaluate_and_save_best(args.total_iters)
     log_metrics(args.total_iters)
+
+    # ---------------------------------------------------------------------------- #
+    # Score-regularized policy distillation (SRPO): extract a deterministic,
+    # single-forward-pass policy from the pretrained diffusion behavior model.
+    # ---------------------------------------------------------------------------- #
+    if args.srpo:
+        # distill from the EMA weights, which are what gets evaluated/saved
+        # as the diffusion policy
+        ema.copy_to(ema_agent.parameters())
+        srpo_agent = ScoreRegularizedAgent(ema_agent, args, int(np.prod(envs.single_observation_space.shape))).to(device)
+        srpo_optimizer = optim.AdamW(
+            params=[p for p in srpo_agent.parameters() if p.requires_grad],
+            lr=args.srpo_lr, betas=(0.95, 0.999), weight_decay=1e-6
+        )
+        srpo_scheduler = get_scheduler(
+            name='cosine',
+            optimizer=srpo_optimizer,
+            num_warmup_steps=500,
+            num_training_steps=args.srpo_iters,
+        )
+        srpo_sampler = RandomSampler(dataset, replacement=False)
+        srpo_batch_sampler = BatchSampler(srpo_sampler, batch_size=args.batch_size, drop_last=True)
+        srpo_batch_sampler = IterationBasedBatchSampler(srpo_batch_sampler, args.srpo_iters)
+        srpo_dataloader = DataLoader(
+            dataset,
+            batch_sampler=srpo_batch_sampler,
+            num_workers=args.num_dataload_workers,
+            worker_init_fn=lambda worker_id: worker_init_fn(worker_id, base_seed=args.seed),
+        )
+
+        srpo_best_eval_metrics = defaultdict(float)
+        def srpo_evaluate_and_save_best(iteration):
+            if iteration % args.eval_freq == 0:
+                eval_metrics = evaluate(
+                    args.num_eval_episodes, srpo_agent, envs, device, args.sim_backend
+                )
+                print(f"Evaluated {len(eval_metrics['success_at_end'])} episodes")
+                for k in eval_metrics.keys():
+                    eval_metrics[k] = np.mean(eval_metrics[k])
+                    writer.add_scalar(f"srpo_eval/{k}", eval_metrics[k], iteration)
+                    print(f"{k}: {eval_metrics[k]:.4f}")
+                for k in ["success_once", "success_at_end"]:
+                    if k in eval_metrics and eval_metrics[k] > srpo_best_eval_metrics[k]:
+                        srpo_best_eval_metrics[k] = eval_metrics[k]
+                        os.makedirs(f'runs/{run_name}/checkpoints', exist_ok=True)
+                        torch.save(srpo_agent.state_dict(), f'runs/{run_name}/checkpoints/srpo_best_eval_{k}.pt')
+                        print(f"New best SRPO {k}_rate: {eval_metrics[k]:.4f}. Saving checkpoint.")
+
+        srpo_agent.train()
+        pbar = tqdm(total=args.srpo_iters)
+        srpo_last_tick = time.time()
+        for iteration, data_batch in enumerate(srpo_dataloader):
+            timings["data_loading"] += time.time() - srpo_last_tick
+            srpo_last_tick = time.time()
+            srpo_loss = srpo_agent.compute_loss(
+                obs_seq=data_batch["observations"],
+                action_seq=data_batch["actions"],
+            )
+            srpo_optimizer.zero_grad()
+            srpo_loss.backward()
+            srpo_optimizer.step()
+            srpo_scheduler.step()
+            timings["srpo_forward"] += time.time() - srpo_last_tick
+            srpo_evaluate_and_save_best(iteration)
+            if iteration % args.log_freq == 0:
+                writer.add_scalar("losses/srpo_loss", srpo_loss.item(), iteration)
+            pbar.update(1)
+            pbar.set_postfix({"srpo_loss": srpo_loss.item()})
+            srpo_last_tick = time.time()
+        srpo_evaluate_and_save_best(args.srpo_iters)
 
     envs.close()
     writer.close()
