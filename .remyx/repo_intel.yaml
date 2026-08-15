@@ -12,7 +12,14 @@ observed_landing_zones:
       and runs its own disti'
     branch: score-regularized-policy-optimization-through-diffusion-beha
     timestamp: '2026-08-14T21:29:54Z'
-  last_observed: '2026-08-14T21:29:54Z'
+  - arxiv: 2509.13574v1
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "examples/baselines/diffusion_policy/train.py \u2014 the\
+      \ new schedule is wired directly into the baseline's existing Agent.compute_loss\
+      \ (timestep sampling) and Agent.get_action (denoise loop), reached via t"
+    branch: dense-jump-flow-matching-with-non-uniform-time-scheduling-fo
+    timestamp: '2026-08-15T10:19:24Z'
+  last_observed: '2026-08-15T10:19:24Z'
 - path: examples/baselines/sac/
   shape_tags:
   - unclassified
@@ -27,4 +34,4 @@ observed_landing_zones:
   last_observed: '2026-08-15T04:10:32Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-15T04:10:32Z'
+last_updated: '2026-08-15T10:19:24Z'
