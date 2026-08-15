@@ -38,6 +38,16 @@ By default, most environments in ManiSkill generate 128x128 images or larger. Ho
 
 You can add `--no-include-state` to exclude any state based information from observations. Note however use this with caution as many environements have goal specification information that is part of the state.
 
+## Beta Policy Head
+
+By default SAC squashes a Gaussian through `tanh` to bound its actions, which saturates at the action bounds and needs a log-probability correction that blows up there. Adding `--policy beta` swaps the actor's head for a bounded-support Beta distribution sampled via implicit reparameterization gradients (adapted from [Soft Actor-Critic with Beta Policy via Implicit Reparameterization Gradients](https://arxiv.org/abs/2409.04971)); the SAC losses, entropy tuning, and replay buffer are unchanged.
+
+```bash
+python sac.py --env_id="PushCube-v1" --policy=beta \
+  --num_envs=32 --utd=0.5 --buffer_size=500_000 \
+  --total_timesteps=500_000 --eval_freq=50_000 --control-mode="pd_ee_delta_pos"
+```
+
 ## Citation
 
 If you use this baseline please cite the following

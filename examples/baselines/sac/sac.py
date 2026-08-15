@@ -24,6 +24,8 @@ import tyro
 
 import mani_skill.envs
 
+from beta_policy import BetaPolicyHead
+
 
 @dataclass
 class Args:
@@ -111,6 +113,10 @@ class Args:
     """Entropy regularization coefficient."""
     autotune: bool = True
     """automatic tuning of the entropy coefficient"""
+    policy: str = "gaussian"
+    """the policy head distribution. 'gaussian' squashes a Normal through tanh, 'beta'
+    samples a bounded-support Beta distribution via implicit reparameterization gradients
+    (arXiv:2409.04971)"""
     training_freq: int = 64
     """training frequency (in steps)"""
     utd: float = 0.5
@@ -207,7 +213,7 @@ LOG_STD_MIN = -5
 
 
 class Actor(nn.Module):
-    def __init__(self, env):
+    def __init__(self, env, policy: str = "gaussian"):
         super().__init__()
         self.backbone = nn.Sequential(
             nn.Linear(np.array(env.single_observation_space.shape).prod(), 256),
@@ -217,6 +223,11 @@ class Actor(nn.Module):
             nn.Linear(256, 256),
             nn.ReLU(),
         )
+        self.policy = policy
+        if policy == "beta":
+            # bounded-support Beta head via implicit reparameterization gradients (arXiv:2409.04971)
+            self.beta_head = BetaPolicyHead(env.single_action_space)
+            return
         self.fc_mean = nn.Linear(256, np.prod(env.single_action_space.shape))
         self.fc_logstd = nn.Linear(256, np.prod(env.single_action_space.shape))
         # action rescaling
@@ -236,11 +247,15 @@ class Actor(nn.Module):
 
     def get_eval_action(self, x):
         x = self.backbone(x)
+        if self.policy == "beta":
+            return self.beta_head.get_eval_action(x)
         mean = self.fc_mean(x)
         action = torch.tanh(mean) * self.action_scale + self.action_bias
         return action
 
     def get_action(self, x):
+        if self.policy == "beta":
+            return self.beta_head.get_action(self.backbone(x))
         mean, log_std = self(x)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
@@ -340,7 +355,7 @@ if __name__ == "__main__":
 
     max_action = float(envs.single_action_space.high[0])
 
-    actor = Actor(envs).to(device)
+    actor = Actor(envs, policy=args.policy).to(device)
     qf1 = SoftQNetwork(envs).to(device)
     qf2 = SoftQNetwork(envs).to(device)
     qf1_target = SoftQNetwork(envs).to(device)
