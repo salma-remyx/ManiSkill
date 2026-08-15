@@ -23,6 +23,7 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from diffusion_policy.conditional_unet1d import ConditionalUnet1D
+from diffusion_policy.step_schedule import beta_timesteps, dense_jump_timesteps, terminal_jump
 from dataclasses import dataclass, field
 from typing import Optional, List
 import tyro
@@ -68,6 +69,16 @@ class Args:
     diffusion_step_embed_dim: int = 64 # not very important
     unet_dims: List[int] = field(default_factory=lambda: [64, 128, 256]) # default setting is about ~4.5M params
     n_groups: int = 8 # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
+    dense_jump: bool = False
+    """if toggled, inference denoises on a dense-early/terminal-jump timestep schedule (the first
+    num_inference_timesteps-1 evaluations are spread over the high-noise timesteps, then one terminal
+    jump to zero) and training timesteps are sampled U-shaped instead of uniformly"""
+    num_inference_timesteps: int = 16
+    """the number of denoise evaluations per get_action call when dense_jump is toggled"""
+    jump_fraction: float = 0.5
+    """where to place the terminal jump, as a fraction of the trained timestep range"""
+    time_beta_alpha: float = 0.2
+    """the Beta(alpha, alpha) shape parameter for U-shaped training timestep sampling"""
 
     # Environment/experiment specific arguments
     max_episode_steps: Optional[int] = None
@@ -192,6 +203,14 @@ class Agent(nn.Module):
             clip_sample=True, # clip output to [-1,1] to improve stability
             prediction_type='epsilon' # predict noise (instead of denoised action)
         )
+        # when set, inference uses a dense-early/terminal-jump timestep schedule instead of
+        # iterating every DDPM timestep, and training timesteps are drawn U-shaped
+        self.step_schedule = (
+            dense_jump_timesteps(
+                self.num_diffusion_iters, args.num_inference_timesteps, args.jump_fraction
+            ) if args.dense_jump else None
+        )
+        self.time_beta_alpha = args.time_beta_alpha
 
     def compute_loss(self, obs_seq, action_seq):
         B = obs_seq.shape[0]
@@ -203,10 +222,15 @@ class Agent(nn.Module):
         noise = torch.randn((B, self.pred_horizon, self.act_dim), device=device)
 
         # sample a diffusion iteration for each data point
-        timesteps = torch.randint(
-            0, self.noise_scheduler.config.num_train_timesteps,
-            (B,), device=device
-        ).long()
+        if self.step_schedule is not None:
+            # U-shaped sampling: supervise the near-clean and near-pure-noise regimes
+            # (which the terminal jump relies on) more often than the mid-noise one
+            timesteps = beta_timesteps(B, self.noise_scheduler.config.num_train_timesteps, alpha=self.time_beta_alpha)
+        else:
+            timesteps = torch.randint(
+                0, self.noise_scheduler.config.num_train_timesteps,
+                (B,), device=device
+            ).long()
 
         # add noise to the clean images(actions) according to the noise magnitude at each diffusion iteration
         # (this is the forward diffusion process)
@@ -234,7 +258,11 @@ class Agent(nn.Module):
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.act_dim), device=obs_seq.device)
 
-            for k in self.noise_scheduler.timesteps:
+            timesteps = (
+                self.step_schedule if self.step_schedule is not None
+                else self.noise_scheduler.timesteps
+            )
+            for i, k in enumerate(timesteps):
                 # predict noise
                 noise_pred = self.noise_pred_net(
                     sample=noisy_action_seq,
@@ -242,12 +270,18 @@ class Agent(nn.Module):
                     global_cond=obs_cond,
                 )
 
-                # inverse diffusion step (remove noise)
-                noisy_action_seq = self.noise_scheduler.step(
-                    model_output=noise_pred,
-                    timestep=k,
-                    sample=noisy_action_seq,
-                ).prev_sample
+                if self.step_schedule is not None and i == len(timesteps) - 1:
+                    # terminal jump: single update spanning (0, k], skipping the low-noise steps
+                    noisy_action_seq = terminal_jump(
+                        self.noise_scheduler, noisy_action_seq, noise_pred, k
+                    )
+                else:
+                    # inverse diffusion step (remove noise)
+                    noisy_action_seq = self.noise_scheduler.step(
+                        model_output=noise_pred,
+                        timestep=k,
+                        sample=noisy_action_seq,
+                    ).prev_sample
 
         # only take act_horizon number of actions
         start = self.obs_horizon - 1

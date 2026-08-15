@@ -48,6 +48,31 @@ python train_rgbd.py --env-id PickCube-v1 \
   --track
 ```
 
+## Dense-jump inference schedule (optional)
+
+By default the policy denoises with every DDPM timestep. Toggling `--dense_jump` switches
+both the training timestep sampler and the inference denoise loop to the non-uniform
+schedule from [Dense-Jump Flow Matching](https://arxiv.org/abs/2509.13574), re-expressed
+for this DDPM policy:
+
+- **Training**: timesteps are drawn U-shaped from `Beta(alpha, alpha)` (`--time_beta_alpha`,
+  default `0.2`) instead of uniformly, so the noise-prediction network sees the near-clean
+  and near-pure-noise regimes more often than the mid-noise one.
+- **Inference**: of the `--num_inference_timesteps` denoise evaluations (default `16`), the
+  first `N-1` are spread uniformly over the high-noise timesteps down to a jump timestep at
+  `--jump_fraction` of the trained range (default `0.5`); the last evaluation is a single
+  terminal jump from that timestep straight to the clean action, skipping the low-noise
+  steps entirely instead of walking through them.
+
+```bash
+python train.py --env-id PickCube-v1 \
+  --demo-path ~/.maniskill/demos/PickCube-v1/motionplanning/trajectory.state.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "physx_cpu" --num-demos 100 --max_episode_steps 100 \
+  --total_iters 30000 --dense_jump --num_inference_timesteps 16
+```
+
+Everything else about the baseline is unchanged; the flag is off by default.
+
 ## Citation
 
 If you use this baseline please cite the following
