@@ -19,7 +19,14 @@ observed_landing_zones:
       \ (timestep sampling) and Agent.get_action (denoise loop), reached via t"
     branch: dense-jump-flow-matching-with-non-uniform-time-scheduling-fo
     timestamp: '2026-08-15T10:19:24Z'
-  last_observed: '2026-08-15T10:19:24Z'
+  - arxiv: 2312.08128v2
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "examples/baselines/diffusion_policy/train.py \u2014 `Agent.get_action`\
+      \ (train.py:231) dispatches to `clockwork_denoise` when `--clockwork_intervals`\
+      \ is set; reached from the pre-existing training loop via "
+    branch: clockwork-diffusion-efficient-generation-with-model-step-dis
+    timestamp: '2026-08-15T17:24:20Z'
+  last_observed: '2026-08-15T17:24:20Z'
 - path: examples/baselines/sac/
   shape_tags:
   - unclassified
@@ -34,4 +41,4 @@ observed_landing_zones:
   last_observed: '2026-08-15T04:10:32Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-15T10:19:24Z'
+last_updated: '2026-08-15T17:24:20Z'
