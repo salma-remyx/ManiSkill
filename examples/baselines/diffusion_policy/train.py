@@ -23,6 +23,7 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
 from diffusion_policy.conditional_unet1d import ConditionalUnet1D
+from diffusion_policy.clockwork_denoise import clockwork_denoise
 from dataclasses import dataclass, field
 from typing import Optional, List
 import tyro
@@ -68,6 +69,13 @@ class Args:
     diffusion_step_embed_dim: int = 64 # not very important
     unet_dims: List[int] = field(default_factory=lambda: [64, 128, 256]) # default setting is about ~4.5M params
     n_groups: int = 8 # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
+
+    # Clockwork inference (resolution-stratified feature caching, retrain-free)
+    clockwork_intervals: Optional[List[int]] = None
+    """per-UNet-stage refresh intervals (coarse-to-fine) used at inference time only.
+    e.g. [4, 2, 1] refreshes the lowest-resolution stage every 4th denoising step, the
+    middle stage every 2nd, and recomputes the highest-resolution stage every step.
+    None (default) keeps the vanilla denoising loop."""
 
     # Environment/experiment specific arguments
     max_episode_steps: Optional[int] = None
@@ -178,6 +186,7 @@ class Agent(nn.Module):
         # denoising results will be clipped to [-1,1], so the action should be in [-1,1] as well
         self.act_dim = env.single_action_space.shape[0]
 
+        self.clockwork_intervals = getattr(args, "clockwork_intervals", None)
         self.noise_pred_net = ConditionalUnet1D(
             input_dim=self.act_dim, # act_horizon is not used (U-Net doesn't care)
             global_cond_dim=np.prod(env.single_observation_space.shape), # obs_horizon * obs_dim
@@ -234,20 +243,31 @@ class Agent(nn.Module):
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.act_dim), device=obs_seq.device)
 
-            for k in self.noise_scheduler.timesteps:
-                # predict noise
-                noise_pred = self.noise_pred_net(
-                    sample=noisy_action_seq,
-                    timestep=k,
-                    global_cond=obs_cond,
-                )
+            if self.clockwork_intervals is None:
+                for k in self.noise_scheduler.timesteps:
+                    # predict noise
+                    noise_pred = self.noise_pred_net(
+                        sample=noisy_action_seq,
+                        timestep=k,
+                        global_cond=obs_cond,
+                    )
 
-                # inverse diffusion step (remove noise)
-                noisy_action_seq = self.noise_scheduler.step(
-                    model_output=noise_pred,
-                    timestep=k,
-                    sample=noisy_action_seq,
-                ).prev_sample
+                    # inverse diffusion step (remove noise)
+                    noisy_action_seq = self.noise_scheduler.step(
+                        model_output=noise_pred,
+                        timestep=k,
+                        sample=noisy_action_seq,
+                    ).prev_sample
+            else:
+                # refresh low-resolution UNet stages on slower clocks
+                # (inference-time only, no retraining needed)
+                noisy_action_seq = clockwork_denoise(
+                    self.noise_pred_net,
+                    self.noise_scheduler,
+                    noisy_action_seq,
+                    global_cond=obs_cond,
+                    refresh_intervals=self.clockwork_intervals,
+                )
 
         # only take act_horizon number of actions
         start = self.obs_horizon - 1

@@ -48,6 +48,18 @@ python train_rgbd.py --env-id PickCube-v1 \
   --track
 ```
 
+## Faster inference with clockwork feature caching
+
+By default every one of the 100 denoising steps recomputes the whole UNet. The observations in the paper ["Clockwork Diffusion: Efficient Generation With Model-Step Distillation"](https://arxiv.org/abs/2312.08128) carry over to the 1D action UNet used here: the high-resolution (long-horizon) stages are sensitive to perturbations and should be recomputed every step, while the low-resolution stages set the coarse shape of the action chunk and can be refreshed on a slower clock. This is an inference-time change only -- no retraining is needed, and the default behaviour is unchanged.
+
+```bash
+# refresh the coarsest stage every 4th denoising step, the middle every 2nd,
+# and recompute the finest (horizon-16) stage every step
+python train.py ... --clockwork_intervals 4 2 1
+```
+
+Intervals are given coarse-to-fine, one per UNet down stage (`unet_dims`), and all-ones intervals reproduce the vanilla denoising loop exactly. At `[4, 2, 1]` roughly 42% of the down-stage evaluations are skipped while the resulting actions stay close to the uncached ones; how much staleness a trained policy tolerates before success rate drops is task-dependent, so sweep the intervals before relying on it.
+
 ## Citation
 
 If you use this baseline please cite the following
