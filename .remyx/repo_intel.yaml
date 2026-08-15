@@ -13,6 +13,18 @@ observed_landing_zones:
     branch: score-regularized-policy-optimization-through-diffusion-beha
     timestamp: '2026-08-14T21:29:54Z'
   last_observed: '2026-08-14T21:29:54Z'
+- path: examples/baselines/sac/
+  shape_tags:
+  - unclassified
+  confirmed_by:
+  - arxiv: 2409.04971v1
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "examples/baselines/sac/sac.py \u2014 the Actor constructor\
+      \ at sac.py:213 is invoked from the script's `if __name__ == '__main__'` block\
+      \ (sac.py:358) with policy=args.policy, selected by the new `--policy b"
+    branch: soft-actor-critic-with-beta-policy-via-implicit-reparameteri
+    timestamp: '2026-08-15T04:10:32Z'
+  last_observed: '2026-08-15T04:10:32Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-14T21:29:54Z'
+last_updated: '2026-08-15T04:10:32Z'
