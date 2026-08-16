@@ -48,6 +48,10 @@ python train_rgbd.py --env-id PickCube-v1 \
   --track
 ```
 
+### Few-step action sampling
+
+By default `get_action` denoises with the full 100-step DDPM loop. Passing `--amed_steps N` (e.g. 5) switches evaluation to a few-step ODE sampler adapted from [Fast ODE-based Sampling for Diffusion Models in Around 5 Steps](https://arxiv.org/abs/2312.00094): a small hypernetwork learns, per step, an intermediate evaluation time and a velocity scale, and is distilled against the policy's own full DDPM rollout before evaluation. Actions come out in `N` function evaluations instead of 100. Omit the flag to keep the default DDPM behavior untouched.
+
 ## Citation
 
 If you use this baseline please cite the following

@@ -19,6 +19,7 @@ from torch.utils.data.sampler import RandomSampler, BatchSampler
 from torch.utils.data.dataloader import DataLoader
 from diffusion_policy.utils import IterationBasedBatchSampler, worker_init_fn
 from diffusion_policy.make_env import make_eval_envs
+from diffusion_policy.amed_sampler import AmedPredictor, amed_distill_loss, amed_sample
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
@@ -68,6 +69,15 @@ class Args:
     diffusion_step_embed_dim: int = 64 # not very important
     unet_dims: List[int] = field(default_factory=lambda: [64, 128, 256]) # default setting is about ~4.5M params
     n_groups: int = 8 # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
+
+    # Few-step ODE sampling (AMED-Solver). 0 keeps the default 100-step DDPM loop.
+    amed_steps: int = 0
+    """number of function evaluations for few-step ODE sampling at evaluation time.
+    0 (default) disables it and uses the full DDPM denoising loop."""
+    amed_iters: int = 100
+    """number of distillation steps used to fit the AMED predictor before each evaluation"""
+    amed_sampling_batch: int = 8
+    """batch size used when regressing the AMED predictor against DDPM trajectories"""
 
     # Environment/experiment specific arguments
     max_episode_steps: Optional[int] = None
@@ -192,6 +202,12 @@ class Agent(nn.Module):
             clip_sample=True, # clip output to [-1,1] to improve stability
             prediction_type='epsilon' # predict noise (instead of denoised action)
         )
+        # Few-step ODE sampler (AMED-Solver): a tiny hypernetwork that learns
+        # where to evaluate the model on each step, so get_action can run in
+        # ~5 NFE instead of 100. Off by default; the DDPM loop is untouched.
+        self.amed_steps = args.amed_steps
+        if self.amed_steps > 0:
+            self.amed_predictor = AmedPredictor(self.noise_scheduler)
 
     def compute_loss(self, obs_seq, action_seq):
         B = obs_seq.shape[0]
@@ -230,6 +246,20 @@ class Agent(nn.Module):
         B = obs_seq.shape[0]
         with torch.no_grad():
             obs_cond = obs_seq.flatten(start_dim=1) # (B, obs_horizon * obs_dim)
+
+            if self.amed_steps > 0:
+                # few-step ODE sampling (AMED-Solver)
+                noisy_action_seq = amed_sample(
+                    self.noise_pred_net,
+                    self.noise_scheduler,
+                    self.amed_predictor,
+                    (B, self.pred_horizon, self.act_dim),
+                    obs_cond,
+                    num_inference_steps=self.amed_steps,
+                )
+                start = self.obs_horizon - 1
+                end = start + self.act_horizon
+                return noisy_action_seq[:, start:end]
 
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.act_dim), device=obs_seq.device)
@@ -353,6 +383,31 @@ if __name__ == "__main__":
     ema = EMAModel(parameters=agent.parameters(), power=0.75)
     ema_agent = Agent(envs, args).to(device)
 
+    if args.amed_steps > 0:
+        # Distill the few-step AMED predictor against the policy's own full
+        # DDPM rollouts (the paper's training step for the hypernetwork).
+        # Refreshed before each evaluation so it tracks the policy as it trains.
+        amed_optimizer = optim.AdamW(agent.amed_predictor.parameters(), lr=1e-3)
+
+        def train_amed_predictor():
+            agent.eval()
+            for _ in range(args.amed_iters):
+                data_batch = next(data_iter)
+                amed_optimizer.zero_grad()
+                loss = amed_distill_loss(
+                    agent, data_batch["observations"].to(device),
+                    data_batch["actions"].to(device),
+                    batch_size=args.amed_sampling_batch,
+                )
+                loss.backward()
+                amed_optimizer.step()
+            agent.train()
+            return loss.item()
+
+        data_iter = iter(train_dataloader)
+    else:
+        train_amed_predictor = None
+
     best_eval_metrics = defaultdict(float)
     timings = defaultdict(float)
 
@@ -360,6 +415,9 @@ if __name__ == "__main__":
     def evaluate_and_save_best(iteration):
         if iteration % args.eval_freq == 0:
             last_tick = time.time()
+            if train_amed_predictor is not None:
+                amed_loss = train_amed_predictor()
+                writer.add_scalar("losses/amed_distill", amed_loss, iteration)
             ema.copy_to(ema_agent.parameters())
             eval_metrics = evaluate(
                 args.num_eval_episodes, ema_agent, envs, device, args.sim_backend
