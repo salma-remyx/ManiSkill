@@ -45,7 +45,14 @@ observed_landing_zones:
       \ (sac.py:358) with policy=args.policy, selected by the new `--policy b"
     branch: soft-actor-critic-with-beta-policy-via-implicit-reparameteri
     timestamp: '2026-08-15T04:10:32Z'
-  last_observed: '2026-08-15T04:10:32Z'
+  - arxiv: 2310.05858v7
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "examples/baselines/sac/sac.py \u2014 the pre-existing `if\
+      \ __name__ == \"__main__\"` training-loop entry point imports `DistributionalSACCritic`\
+      \ (sac.py:27) and constructs it at sac.py:350 when the new `--dis"
+    branch: distributional-soft-actor-critic-with-three-refinements
+    timestamp: '2026-08-17T16:52:46Z'
+  last_observed: '2026-08-17T16:52:46Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-17T09:04:03Z'
+last_updated: '2026-08-17T16:52:46Z'
