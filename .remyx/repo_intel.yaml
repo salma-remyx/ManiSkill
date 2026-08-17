@@ -26,7 +26,14 @@ observed_landing_zones:
       \ is set; reached from the pre-existing training loop via "
     branch: clockwork-diffusion-efficient-generation-with-model-step-dis
     timestamp: '2026-08-15T17:24:20Z'
-  last_observed: '2026-08-15T17:24:20Z'
+  - arxiv: 2312.00094v3
+    mode: Mode 2 (adapted port)
+    call_site_specifics: examples/baselines/diffusion_policy/train.py and train_rgbd.py
+      `Agent.__init__`/`Agent.get_action`, invoked from the pre-existing eval loop
+      via `diffusion_policy/evaluate.py:17` (`agent.get_action(obs
+    branch: fast-ode-based-sampling-for-diffusion-models-in-around-5-ste-v2
+    timestamp: '2026-08-17T09:04:03Z'
+  last_observed: '2026-08-17T09:04:03Z'
 - path: examples/baselines/sac/
   shape_tags:
   - unclassified
@@ -41,4 +48,4 @@ observed_landing_zones:
   last_observed: '2026-08-15T04:10:32Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-15T17:24:20Z'
+last_updated: '2026-08-17T09:04:03Z'
