@@ -48,6 +48,20 @@ python train_rgbd.py --env-id PickCube-v1 \
   --track
 ```
 
+## Fast sampling at evaluation
+
+By default the policy denoises with the same 100 DDPM steps it was trained with. Adding `--use-deis` swaps only the inference sampler for DEIS, a multistep ODE solver, which reuses the trained `noise_pred_net` untouched and needs no retraining or distillation. Pair it with `--num-inference-steps` to cut the number of denoising evaluations per action chunk:
+
+```bash
+python train.py --env-id PickCube-v1 \
+  --demo-path ~/.maniskill/demos/PickCube-v1/motionplanning/trajectory.state.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "physx_cpu" --num-demos 100 --max_episode_steps 100 \
+  --total_iters 30000 --use-deis --num-inference-steps 5 \
+  --exp-name diffusion_policy-PickCube-v1-state-deis5-100_motionplanning_demos-1
+```
+
+`--num-inference-steps` also works without `--use-deis`, but the DDPM ancestral sampler degrades much faster as steps drop, so the low-step regime is where DEIS pays off. This is adapted from ["Fast ODE-based Sampling for Diffusion Models in Around 5 Steps"](https://arxiv.org/abs/2312.00094v3).
+
 ## Citation
 
 If you use this baseline please cite the following

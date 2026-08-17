@@ -19,6 +19,7 @@ from torch.utils.data.sampler import RandomSampler, BatchSampler
 from torch.utils.data.dataloader import DataLoader
 from diffusion_policy.utils import IterationBasedBatchSampler, worker_init_fn
 from diffusion_policy.make_env import make_eval_envs
+from diffusion_policy.fast_sampler import build_deis_scheduler, deis_denoise
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
@@ -68,6 +69,15 @@ class Args:
     diffusion_step_embed_dim: int = 64 # not very important
     unet_dims: List[int] = field(default_factory=lambda: [64, 128, 256]) # default setting is about ~4.5M params
     n_groups: int = 8 # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
+
+    # Inference-time sampling arguments. Training is unaffected by both.
+    num_inference_steps: Optional[int] = None
+    """number of denoising steps (NFE) at evaluation. None uses the 100 training steps. Lowering this
+    with --use-deis trades sample quality for much faster evaluation/rollout."""
+    use_deis: bool = False
+    """if toggled, sample actions at inference with DEIS, a fast multistep ODE solver, instead of
+    the DDPM ancestral sampler. Reuses the trained noise_pred_net untouched; pairs well with a low
+    --num-inference-steps (around 5-10)."""
 
     # Environment/experiment specific arguments
     max_episode_steps: Optional[int] = None
@@ -192,6 +202,10 @@ class Agent(nn.Module):
             clip_sample=True, # clip output to [-1,1] to improve stability
             prediction_type='epsilon' # predict noise (instead of denoised action)
         )
+        # fast (ODE-based) sampler used at inference when args.use_deis is set
+        self.inference_scheduler = build_deis_scheduler(
+            self.noise_scheduler, args.num_inference_steps or self.num_diffusion_iters
+        ) if args.use_deis else None
 
     def compute_loss(self, obs_seq, action_seq):
         B = obs_seq.shape[0]
@@ -228,8 +242,21 @@ class Agent(nn.Module):
 
         # obs_seq: (B, obs_horizon, obs_dim)
         B = obs_seq.shape[0]
+        # only take act_horizon number of actions
+        start = self.obs_horizon - 1
+        end = start + self.act_horizon
         with torch.no_grad():
             obs_cond = obs_seq.flatten(start_dim=1) # (B, obs_horizon * obs_dim)
+
+            if self.inference_scheduler is not None:
+                # fast ODE-based sampling: NFE is set by --num-inference-steps
+                return deis_denoise(
+                    self.noise_pred_net,
+                    self.inference_scheduler,
+                    obs_cond,
+                    (B, self.pred_horizon, self.act_dim),
+                    obs_seq.device,
+                )[:, start:end]
 
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.act_dim), device=obs_seq.device)
@@ -249,9 +276,6 @@ class Agent(nn.Module):
                     sample=noisy_action_seq,
                 ).prev_sample
 
-        # only take act_horizon number of actions
-        start = self.obs_horizon - 1
-        end = start + self.act_horizon
         return noisy_action_seq[:, start:end] # (B, act_horizon, act_dim)
 
 def save_ckpt(run_name, tag):

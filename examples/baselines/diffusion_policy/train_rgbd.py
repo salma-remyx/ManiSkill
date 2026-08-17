@@ -29,6 +29,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from diffusion_policy.conditional_unet1d import ConditionalUnet1D
 from diffusion_policy.evaluate import evaluate
+from diffusion_policy.fast_sampler import build_deis_scheduler, deis_denoise
 from diffusion_policy.make_env import make_eval_envs
 from diffusion_policy.plain_conv import PlainConv
 from diffusion_policy.utils import (IterationBasedBatchSampler,
@@ -83,6 +84,15 @@ class Args:
     n_groups: int = (
         8  # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
     )
+
+    # Inference-time sampling arguments. Training is unaffected by both.
+    num_inference_steps: Optional[int] = None
+    """number of denoising steps (NFE) at evaluation. None uses the 100 training steps. Lowering this
+    with --use-deis trades sample quality for much faster evaluation/rollout."""
+    use_deis: bool = False
+    """if toggled, sample actions at inference with DEIS, a fast multistep ODE solver, instead of
+    the DDPM ancestral sampler. Reuses the trained noise_pred_net untouched; pairs well with a low
+    --num-inference-steps (around 5-10)."""
 
     # Environment/experiment specific arguments
     obs_mode: str = "rgb+depth"
@@ -286,6 +296,15 @@ class Agent(nn.Module):
             clip_sample=True,  # clip output to [-1,1] to improve stability
             prediction_type="epsilon",  # predict noise (instead of denoised action)
         )
+        # fast (ODE-based) sampler used at inference when args.use_deis is set
+        self.inference_scheduler = (
+            build_deis_scheduler(
+                self.noise_scheduler,
+                args.num_inference_steps or self.num_diffusion_iters,
+            )
+            if args.use_deis
+            else None
+        )
 
     def encode_obs(self, obs_seq, eval_mode):
         if self.include_rgb:
@@ -345,6 +364,9 @@ class Agent(nn.Module):
 
         # obs_seq['state']: (B, obs_horizon, obs_state_dim)
         B = obs_seq["state"].shape[0]
+        # only take act_horizon number of actions
+        start = self.obs_horizon - 1
+        end = start + self.act_horizon
         with torch.no_grad():
             if self.include_rgb:
                 obs_seq["rgb"] = obs_seq["rgb"].permute(0, 1, 4, 2, 3)
@@ -354,6 +376,16 @@ class Agent(nn.Module):
             obs_cond = self.encode_obs(
                 obs_seq, eval_mode=True
             )  # (B, obs_horizon * obs_dim)
+
+            if self.inference_scheduler is not None:
+                # fast ODE-based sampling: NFE is set by --num-inference-steps
+                return deis_denoise(
+                    self.noise_pred_net,
+                    self.inference_scheduler,
+                    obs_cond,
+                    (B, self.pred_horizon, self.act_dim),
+                    obs_seq["state"].device,
+                )[:, start:end]
 
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn(
@@ -375,9 +407,6 @@ class Agent(nn.Module):
                     sample=noisy_action_seq,
                 ).prev_sample
 
-        # only take act_horizon number of actions
-        start = self.obs_horizon - 1
-        end = start + self.act_horizon
         return noisy_action_seq[:, start:end]  # (B, act_horizon, act_dim)
 
 
