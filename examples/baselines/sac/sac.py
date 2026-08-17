@@ -24,6 +24,8 @@ import tyro
 
 import mani_skill.envs
 
+from distributional_critic import DistributionalSACCritic
+
 
 @dataclass
 class Args:
@@ -119,6 +121,8 @@ class Args:
     """whether to let parallel environments reset upon termination instead of truncation"""
     bootstrap_at_done: str = "always"
     """the bootstrap method to use when a done signal is received. Can be 'always' or 'never'"""
+    distributional: bool = False
+    """learn a Gaussian value distribution (DSAC-T) instead of a scalar Q-value"""
 
     # to be filled in runtime
     grad_steps_per_iteration: int = 0
@@ -341,18 +345,29 @@ if __name__ == "__main__":
     max_action = float(envs.single_action_space.high[0])
 
     actor = Actor(envs).to(device)
-    qf1 = SoftQNetwork(envs).to(device)
-    qf2 = SoftQNetwork(envs).to(device)
-    qf1_target = SoftQNetwork(envs).to(device)
-    qf2_target = SoftQNetwork(envs).to(device)
+    if args.distributional:
+        # DSAC-T: twin value distributions with the three refinements
+        dist_critic = DistributionalSACCritic(envs, tau=args.tau).to(device)
+        qf1, qf2 = dist_critic.qf1, dist_critic.qf2
+        qf1_target, qf2_target = dist_critic.qf1_target, dist_critic.qf2_target
+    else:
+        dist_critic = None
+        qf1 = SoftQNetwork(envs).to(device)
+        qf2 = SoftQNetwork(envs).to(device)
+        qf1_target = SoftQNetwork(envs).to(device)
+        qf2_target = SoftQNetwork(envs).to(device)
     if args.checkpoint is not None:
         ckpt = torch.load(args.checkpoint)
         actor.load_state_dict(ckpt['actor'])
         qf1.load_state_dict(ckpt['qf1'])
         qf2.load_state_dict(ckpt['qf2'])
-    qf1_target.load_state_dict(qf1.state_dict())
-    qf2_target.load_state_dict(qf2.state_dict())
-    q_optimizer = optim.Adam(list(qf1.parameters()) + list(qf2.parameters()), lr=args.q_lr)
+    if dist_critic is None:
+        qf1_target.load_state_dict(qf1.state_dict())
+        qf2_target.load_state_dict(qf2.state_dict())
+    q_optimizer = optim.Adam(
+        dist_critic.parameters() if dist_critic is not None else list(qf1.parameters()) + list(qf2.parameters()),
+        lr=args.q_lr,
+    )
     actor_optimizer = optim.Adam(list(actor.parameters()), lr=args.policy_lr)
 
     # Automatic entropy tuning
@@ -423,8 +438,8 @@ if __name__ == "__main__":
                 model_path = f"runs/{run_name}/ckpt_{global_step}.pt"
                 torch.save({
                     'actor': actor.state_dict(),
-                    'qf1': qf1_target.state_dict(),
-                    'qf2': qf2_target.state_dict(),
+                    'qf1': qf1_target.state_dict() if dist_critic is None else dist_critic.qf1.state_dict(),
+                    'qf2': qf2_target.state_dict() if dist_critic is None else dist_critic.qf2.state_dict(),
                     'log_alpha': log_alpha,
                 }, model_path)
                 print(f"model saved to {model_path}")
@@ -482,17 +497,33 @@ if __name__ == "__main__":
             # update the value networks
             with torch.no_grad():
                 next_state_actions, next_state_log_pi, _ = actor.get_action(data.next_obs)
-                qf1_next_target = qf1_target(data.next_obs, next_state_actions)
-                qf2_next_target = qf2_target(data.next_obs, next_state_actions)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
-                next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target).view(-1)
+                if dist_critic is not None:
+                    # DSAC-T (eq. 20): the target network with the smaller mean
+                    # supplies both the expected-value and the random-return target.
+                    next_q_value, y_z_min = dist_critic.targets(
+                        data.next_obs, next_state_actions, next_state_log_pi,
+                        data.rewards, data.dones, args.gamma, alpha,
+                    )
+                else:
+                    qf1_next_target = qf1_target(data.next_obs, next_state_actions)
+                    qf2_next_target = qf2_target(data.next_obs, next_state_actions)
+                    min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
+                    next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target).view(-1)
                 # data.dones is "stop_bootstrap", which is computed earlier according to args.bootstrap_at_done
 
-            qf1_a_values = qf1(data.obs, data.actions).view(-1)
-            qf2_a_values = qf2(data.obs, data.actions).view(-1)
-            qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
-            qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
-            qf_loss = qf1_loss + qf2_loss
+            if dist_critic is not None:
+                # DSAC-T (eq. 26): expected-value-substituted, variance-rescaled
+                # critic gradient for each of the twin value distributions.
+                qf_loss = dist_critic.loss(data.obs, data.actions, next_q_value, y_z_min)
+                qf1_a_values = dist_critic.qf1.expected_value(data.obs, data.actions).view(-1)
+                qf2_a_values = dist_critic.qf2.expected_value(data.obs, data.actions).view(-1)
+                qf1_loss = qf2_loss = qf_loss / 2
+            else:
+                qf1_a_values = qf1(data.obs, data.actions).view(-1)
+                qf2_a_values = qf2(data.obs, data.actions).view(-1)
+                qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
+                qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
+                qf_loss = qf1_loss + qf2_loss
 
             q_optimizer.zero_grad()
             qf_loss.backward()
@@ -501,9 +532,13 @@ if __name__ == "__main__":
             # update the policy network
             if global_update % args.policy_frequency == 0:  # TD 3 Delayed update support
                 pi, log_pi, _ = actor.get_action(data.obs)
-                qf1_pi = qf1(data.obs, pi)
-                qf2_pi = qf2(data.obs, pi)
-                min_qf_pi = torch.min(qf1_pi, qf2_pi)
+                if dist_critic is not None:
+                    # DSAC-T (eq. 22): min over the twin value distributions
+                    min_qf_pi = dist_critic.min_expected_value(data.obs, pi)
+                else:
+                    qf1_pi = qf1(data.obs, pi)
+                    qf2_pi = qf2(data.obs, pi)
+                    min_qf_pi = torch.min(qf1_pi, qf2_pi)
                 actor_loss = ((alpha * log_pi) - min_qf_pi).mean()
 
                 actor_optimizer.zero_grad()
@@ -526,10 +561,13 @@ if __name__ == "__main__":
 
             # update the target networks
             if global_update % args.target_network_frequency == 0:
-                for param, target_param in zip(qf1.parameters(), qf1_target.parameters()):
-                    target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
-                for param, target_param in zip(qf2.parameters(), qf2_target.parameters()):
-                    target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
+                if dist_critic is not None:
+                    dist_critic.update_targets()
+                else:
+                    for param, target_param in zip(qf1.parameters(), qf1_target.parameters()):
+                        target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
+                    for param, target_param in zip(qf2.parameters(), qf2_target.parameters()):
+                        target_param.data.copy_(args.tau * param.data + (1 - args.tau) * target_param.data)
         update_time = time.perf_counter() - update_time
         cumulative_times["update_time"] += update_time
 
@@ -555,8 +593,8 @@ if __name__ == "__main__":
         model_path = f"runs/{run_name}/final_ckpt.pt"
         torch.save({
             'actor': actor.state_dict(),
-            'qf1': qf1_target.state_dict(),
-            'qf2': qf2_target.state_dict(),
+            'qf1': qf1_target.state_dict() if dist_critic is None else dist_critic.qf1.state_dict(),
+            'qf2': qf2_target.state_dict() if dist_critic is None else dist_critic.qf2.state_dict(),
             'log_alpha': log_alpha,
         }, model_path)
         print(f"model saved to {model_path}")

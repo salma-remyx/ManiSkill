@@ -65,3 +65,28 @@ If you use this baseline please cite the following
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 ```
+## Distributional Critic (DSAC-T)
+
+The state based SAC script can optionally learn a Gaussian value distribution instead of a scalar Q-value, following DSAC-T ("Distributional Soft Actor-Critic with Three Refinements", Duan et al., TPAMI 2025). The critic head predicts both the mean Q(s, a) and a standard deviation, and the twin critics, targets and critic loss are replaced by the twin value-distribution variants while the actor loss keeps its existing scalar form:
+
+```bash
+python sac.py --env_id="PickCube-v1" \
+  --num_envs=32 --utd=0.5 --buffer_size=500_000 \
+  --total_timesteps=500_000 --eval_freq=50_000 --control-mode="pd_ee_delta_pos" \
+  --distributional
+```
+
+The three refinements are: the expected TD target drives the mean gradient instead of a sampled return; the target network with the smaller mean supplies both the critic and actor targets; and the critic gradient is rescaled by a variance-based weight with an adaptive clipping boundary (`b = 3 * E[sigma]`), so no per-task clipping boundary needs tuning. Without `--distributional` the original scalar-critic SAC runs unchanged.
+
+If you use the distributional critic please also cite:
+```
+@article{duan2025distributional,
+  title={Distributional Soft Actor-Critic with Three Refinements},
+  author={Duan, Jingliang and Wang, Wenxuan and Li, Shengbo Eben and others},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  volume={47},
+  number={5},
+  pages={3935--3946},
+  year={2025}
+}
+```
