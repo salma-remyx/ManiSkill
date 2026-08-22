@@ -65,6 +65,16 @@ observed_landing_zones:
     branch: proximal-policy-distillation
     timestamp: '2026-08-22T06:39:54Z'
   last_observed: '2026-08-22T06:39:54Z'
+- path: examples/baselines/experimental/sac_moe/
+  shape_tags:
+  - unclassified
+  confirmed_by:
+  - arxiv: 2402.12550v4
+    mode: Mode 2 (adapted port)
+    call_site_specifics: (none)
+    branch: multilinear-mixture-of-experts-scalable-expert-specializatio
+    timestamp: '2026-08-22T17:32:40Z'
+  last_observed: '2026-08-22T17:32:40Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-22T06:39:54Z'
+last_updated: '2026-08-22T17:32:40Z'
