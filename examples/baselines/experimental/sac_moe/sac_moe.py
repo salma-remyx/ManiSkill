@@ -24,6 +24,8 @@ import tyro
 
 import mani_skill.envs
 
+from factorized_mu_moe import FactorizedMoE
+
 
 @dataclass
 class Args:
@@ -125,6 +127,18 @@ class Args:
     """the number of gradient updates per iteration"""
     steps_per_env: int = 0
     """the number of steps each parallel env takes per iteration"""
+
+    # Mixture-of-experts architecture
+    moe_mode: str = "dense"
+    """how the experts are computed: "dense" evaluates every expert as in the original
+    SAC MoE; "mumoe" factorizes the expert stack (multilinear MoE) so that the number
+    of experts scales without evaluating each one"""
+    num_experts: int = 4
+    """the number of experts in each MoE value/Q network"""
+    moe_rank: int = 64
+    """the tensor rank of the factorized (mumoe) experts"""
+    moe_variant: str = "cp"
+    """the factorization of the mumoe experts: "cp" (CP/decomposed) or "tr" (tensor ring)"""
 
 @dataclass
 class ReplayBufferSample:
@@ -271,6 +285,25 @@ LOG_STD_MAX = 2
 LOG_STD_MIN = -5
 
 
+def build_moe(expert_module, env, args: Args):
+    """Build the mixture-of-experts network used for the value/Q heads.
+
+    Selects between the original dense MoE and the factorized (multilinear)
+    MoE, both of which expose the same ``forward(x, a=None)`` interface.
+    """
+    if args.moe_mode == "mumoe":
+        return FactorizedMoE(
+            args.num_experts,
+            expert_module,
+            env,
+            variant=args.moe_variant,
+            rank=args.moe_rank,
+        )
+    if args.moe_mode != "dense":
+        raise ValueError(f"unknown moe_mode {args.moe_mode!r} (expected 'dense' or 'mumoe')")
+    return MoE(args.num_experts, expert_module, env)
+
+
 class Actor(nn.Module):
     def __init__(self, env):
         super().__init__()
@@ -406,11 +439,11 @@ if __name__ == "__main__":
     max_action = float(envs.single_action_space.high[0])
 
     actor = Actor(envs).to(device)
-    value_predictor = MoE(4, VNetwork, envs).to(device)
-    qf1 = MoE(4, SoftQNetwork, envs).to(device)
-    qf2 = MoE(4, SoftQNetwork, envs).to(device)
-    qf1_target = MoE(4, SoftQNetwork, envs).to(device)
-    qf2_target = MoE(4, SoftQNetwork, envs).to(device)
+    value_predictor = build_moe(VNetwork, envs, args).to(device)
+    qf1 = build_moe(SoftQNetwork, envs, args).to(device)
+    qf2 = build_moe(SoftQNetwork, envs, args).to(device)
+    qf1_target = build_moe(SoftQNetwork, envs, args).to(device)
+    qf2_target = build_moe(SoftQNetwork, envs, args).to(device)
     if args.checkpoint is not None:
         ckpt = torch.load(args.checkpoint)
         actor.load_state_dict(ckpt['actor'])

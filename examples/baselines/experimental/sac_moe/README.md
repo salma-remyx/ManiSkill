@@ -6,6 +6,20 @@ This baseline was contributed by [@XuGW-Kevin](https://github.com/XuGW-Kevin), [
 
 Currently, two enhancements have been integrated into the sac_moe.py and sac_moe_rgbd.py files: the [Mixture-of-Expert (MoE) Network](https://arxiv.org/abs/2402.08609) and the [Blended Exploration and Exploitation (BEE) Operator](https://arxiv.org/abs/2306.02865). More experimental features can be added in the future.
 
+## Factorized (multilinear) experts
+
+`sac_moe.py` can also factorize the expert stack instead of evaluating every expert on each forward pass — the multilinear MoE layer of [Multilinear Mixture of Experts: Scalable Expert Specialization through Factorization](https://arxiv.org/abs/2402.12550) (NeurIPS 2024). The experts' weight matrices are parameterized as a single tensor that is contracted with the routing coefficients *in factorized form*, so it is never materialized; routing stays fully differentiable (entmax1.5 rather than top-K), so no load-balancing loss is needed. The input/hidden layers of the expert MLPs are shared, and only their final linear layer becomes the factorized mixture.
+
+```bash
+python sac_moe.py --env_id="PushT-v1" --num_envs=32 --utd=0.5 --buffer_size=500_000 \
+  --total_timesteps=1_000_000 --eval_freq=50_000 --control-mode="pd_ee_delta_pos" \
+  --moe-mode=mumoe --num-experts=1024 --moe-rank=64
+```
+
+`--moe-variant=cp` (default) uses the CP factorization; `--moe-variant=tr` uses the Tensor Ring variant, which is cheaper still at high expert counts. Dropping `--moe-mode` keeps the original dense MoE, which is unchanged.
+
+Because each expert is no longer evaluated separately, `--num-experts` can be raised well past what the dense MoE can afford. With the default `[256, 256, 1]` experts, raising the count from 64 to 1024 grows the whole value/Q network from 162K to 253K parameters, where the dense MoE would grow from 9.0M to 143M; and the forward pass stays a handful of matrix products instead of 1024 MLP evaluations (~25x faster on CPU at batch size 1024 in our measurement). As in the paper, larger expert counts are what buys finer-grained specialization; `factorized_mu_moe.materialize_experts` exposes the implicit expert weight matrices for inspecting that specialization.
+
 ## State Based RL
 
 Below is a sample of various commands you can run to train a state-based policy to solve various tasks with SAC MoE. Note that control modes can be changed and can be important for improving sample efficiency.
