@@ -93,6 +93,21 @@ This will use environment states to replay trajectories, turn on the ray-tracer 
 - Evaluation with GPU simulation (especially with randomized objects) is a bit tricky. We recommend reading through [our docs](https://maniskill.readthedocs.io/en/latest/user_guide/reinforcement_learning/baselines.html#evaluation) on online RL evaluation in order to understand how to fairly evaluate policies with GPU simulation.
 - Many tasks support visual observations, however we have not carefully verified yet if the camera poses for the tasks are setup in a way that makes it possible to solve some tasks from visual observations.
 
+## Proximal Policy Distillation (PPD)
+
+Adapted from [Proximal Policy Distillation](https://arxiv.org/abs/2407.15134) (Spigler, TMLR 2025). PPD distills a frozen teacher into the student while the student keeps training with PPO on its own collected rewards: the usual clipped PPO surrogate is combined with a `distill_lambda`-weighted KL(teacher || student) term whose importance weights are clipped at `1 - clip_coef`. The critic is not distilled, and the teacher is another `ppo.py` checkpoint of the same architecture (frozen, eval mode, never optimized).
+
+To distill from a previously trained checkpoint, pass `--teacher_checkpoint`; the flag is off by default so plain PPO runs are unchanged:
+
+```bash
+python ppo.py --env_id="PushCube-v1" \
+  --num_envs=2048 --update_epochs=8 --num_minibatches=32 \
+  --total_timesteps=2_000_000 --eval_freq=10 --num-steps=20 \
+  --teacher_checkpoint=path/to/teacher_ckpt.pt --distill_lambda=1.0
+```
+
+The KL term is logged as `losses/distill_kl`. Teachers trained with different hidden sizes still load (mismatched keys are skipped) as long as the observation and action shapes match.
+
 ## Citation
 
 If you use this baseline please cite the following

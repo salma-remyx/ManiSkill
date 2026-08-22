@@ -95,6 +95,10 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = 0.1
     """the target KL divergence threshold"""
+    teacher_checkpoint: Optional[str] = None
+    """path to a frozen teacher checkpoint to distill from via Proximal Policy Distillation (PPD); off by default"""
+    distill_lambda: float = 1.0
+    """PPD: weight of the KL(teacher || student) distillation term"""
     reward_scale: float = 1.0
     """Scale the reward by this factor"""
     eval_freq: int = 25
@@ -269,6 +273,17 @@ if __name__ == "__main__":
     if args.checkpoint:
         agent.load_state_dict(torch.load(args.checkpoint))
 
+    # Proximal Policy Distillation: a frozen teacher adds a lambda-weighted
+    # KL(teacher || student) term to the PPO loss while the student keeps
+    # collecting its own rewards. Critic and PPO update are untouched.
+    ppd_loss = None
+    if args.teacher_checkpoint:
+        from policy_distillation import PPDLoss, load_ppd_teacher
+
+        teacher = load_ppd_teacher(args.teacher_checkpoint, envs, device)
+        ppd_loss = PPDLoss(teacher, distill_lambda=args.distill_lambda, clip_coef=args.clip_coef).to(device)
+        print(f"Distilling from frozen teacher {args.teacher_checkpoint} with distill_lambda={args.distill_lambda}")
+
     for iteration in range(1, args.num_iterations + 1):
         print(f"Epoch: {iteration}, global_step={global_step}")
         final_values = torch.zeros((args.num_steps, args.num_envs), device=device)
@@ -431,6 +446,10 @@ if __name__ == "__main__":
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                if ppd_loss is not None:
+                    # PPD Eq. 2: subtract the clipped KL(teacher || student).
+                    kl_loss = ppd_loss(agent.actor_mean, agent.actor_logstd, b_obs[mb_inds])
+                    loss = loss - ppd_loss.distill_lambda * kl_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -454,6 +473,8 @@ if __name__ == "__main__":
         logger.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         logger.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
         logger.add_scalar("losses/explained_variance", explained_var, global_step)
+        if ppd_loss is not None:
+            logger.add_scalar("losses/distill_kl", kl_loss.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
         logger.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
         logger.add_scalar("time/step", global_step, global_step)
