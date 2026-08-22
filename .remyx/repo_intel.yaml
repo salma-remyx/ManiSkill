@@ -53,6 +53,18 @@ observed_landing_zones:
     branch: distributional-soft-actor-critic-with-three-refinements
     timestamp: '2026-08-17T16:52:46Z'
   last_observed: '2026-08-17T16:52:46Z'
+- path: examples/baselines/ppo/
+  shape_tags:
+  - unclassified
+  confirmed_by:
+  - arxiv: 2407.15134v2
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "examples/baselines/ppo/ppo.py \u2014 the pre-existing CleanRL-style\
+      \ PPO training script. The teacher is loaded at the existing checkpoint hook\
+      \ inside the __main__ training loop (ppo.py:280-285) and the KL "
+    branch: proximal-policy-distillation
+    timestamp: '2026-08-22T06:39:54Z'
+  last_observed: '2026-08-22T06:39:54Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-17T16:52:46Z'
+last_updated: '2026-08-22T06:39:54Z'
