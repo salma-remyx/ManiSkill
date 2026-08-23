@@ -36,7 +36,7 @@ observed_landing_zones:
   last_observed: '2026-08-17T09:04:03Z'
 - path: examples/baselines/sac/
   shape_tags:
-  - unclassified
+  - library-shape-public-api
   confirmed_by:
   - arxiv: 2409.04971v1
     mode: Mode 2 (adapted port)
@@ -52,7 +52,14 @@ observed_landing_zones:
       \ (sac.py:27) and constructs it at sac.py:350 when the new `--dis"
     branch: distributional-soft-actor-critic-with-three-refinements
     timestamp: '2026-08-17T16:52:46Z'
-  last_observed: '2026-08-17T16:52:46Z'
+  - arxiv: 2404.10645v1
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "examples/baselines/sac/sac_rgbd.py \u2014 the pre-existing\
+      \ `python sac_rgbd.py` training entry point constructs the critics through the\
+      \ qf_network indirection in its __main__ block, and the replay-sampling"
+    branch: continuous-control-reinforcement-learning-distributed-distri
+    timestamp: '2026-08-23T02:07:15Z'
+  last_observed: '2026-08-23T02:07:15Z'
 - path: examples/baselines/ppo/
   shape_tags:
   - unclassified
@@ -77,4 +84,4 @@ observed_landing_zones:
   last_observed: '2026-08-22T17:32:40Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-22T17:32:40Z'
+last_updated: '2026-08-23T02:07:15Z'
