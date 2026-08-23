@@ -48,6 +48,31 @@ python train_rgbd.py --env-id PickCube-v1 \
   --track
 ```
 
+## One-step action generation with flow maps
+
+Adding `--flow_map` trains the same `ConditionalUnet1D` as a two-time flow map
+(consistency model) instead of a DDPM noise predictor, and generates each action
+chunk in a **single network evaluation** rather than the 100-step denoise loop.
+This is adapted from ["How to build a consistency model: Learning flow maps via
+self-distillation"](https://arxiv.org/abs/2505.18825), which trains the map with
+a Lagrangian self-distillation loss: no pre-trained teacher, no bootstrapping off
+small steps. The map is parameterized with an Euler shift, `X_{s,t}(x) = x +
+(t - s) v_{s,t}(x)`, so the boundary condition `X_{s,s}(x) = x` holds exactly,
+and the diagonal `v_{t,t}` is pinned to the true velocity by the ordinary
+flow-matching target on the demonstrated actions.
+
+```bash
+python train.py --env-id PickCube-v1 \
+  --demo-path ~/.maniskill/demos/PickCube-v1/motionplanning/trajectory.state.pd_ee_delta_pos.physx_cpu.h5 \
+  --control-mode "pd_ee_delta_pos" --sim-backend "physx_cpu" --num-demos ${demos} --max_episode_steps 100 \
+  --total_iters 30000 --flow_map \
+  --exp-name flow_map_policy-PickCube-v1-state-${demos}_motionplanning_demos-${seed}
+```
+
+`--eta` controls the probability of sampling the diagonal time pair `s == t`
+(default `0.75`, the paper's recommended value); the remaining samples land on
+`s < t` and carry the self-distillation target.
+
 ## Citation
 
 If you use this baseline please cite the following

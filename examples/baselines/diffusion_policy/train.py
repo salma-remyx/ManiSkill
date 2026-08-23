@@ -19,6 +19,7 @@ from torch.utils.data.sampler import RandomSampler, BatchSampler
 from torch.utils.data.dataloader import DataLoader
 from diffusion_policy.utils import IterationBasedBatchSampler, worker_init_fn
 from diffusion_policy.make_env import make_eval_envs
+from diffusion_policy.flow_map_policy import FlowMapConfig, FlowMapPolicy
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from diffusers.training_utils import EMAModel
 from diffusers.optimization import get_scheduler
@@ -68,6 +69,14 @@ class Args:
     diffusion_step_embed_dim: int = 64 # not very important
     unet_dims: List[int] = field(default_factory=lambda: [64, 128, 256]) # default setting is about ~4.5M params
     n_groups: int = 8 # jigu says it is better to let each group have at least 8 channels; it seems 4 and 8 are simila
+
+    # Flow map (consistency model) specific arguments
+    flow_map: bool = False
+    """train a two-time flow map with Lagrangian self-distillation instead of the
+    DDPM noise-prediction objective, and generate action chunks in a single
+    network evaluation instead of a 100-step denoise loop"""
+    eta: float = 0.75
+    """probability of sampling the diagonal s == t in the flow-map time pair"""
 
     # Environment/experiment specific arguments
     max_episode_steps: Optional[int] = None
@@ -192,12 +201,27 @@ class Agent(nn.Module):
             clip_sample=True, # clip output to [-1,1] to improve stability
             prediction_type='epsilon' # predict noise (instead of denoised action)
         )
+        self.flow_map_policy = None
+        if args.flow_map:
+            # wraps the same noise_pred_net, so the checkpoint layout and the
+            # ConditionalUnet1D conditioning path are unchanged
+            self.flow_map_policy = FlowMapPolicy(
+                self.noise_pred_net,
+                FlowMapConfig(
+                    num_train_timesteps=self.num_diffusion_iters, eta=args.eta
+                ),
+            )
 
     def compute_loss(self, obs_seq, action_seq):
         B = obs_seq.shape[0]
 
         # observation as FiLM conditioning
         obs_cond = obs_seq.flatten(start_dim=1) # (B, obs_horizon * obs_dim)
+
+        if self.flow_map_policy is not None:
+            return self.flow_map_policy.compute_lagrangian_self_distillation_loss(
+                action_seq, obs_cond
+            )
 
         # sample noise to add to actions
         noise = torch.randn((B, self.pred_horizon, self.act_dim), device=device)
@@ -230,6 +254,15 @@ class Agent(nn.Module):
         B = obs_seq.shape[0]
         with torch.no_grad():
             obs_cond = obs_seq.flatten(start_dim=1) # (B, obs_horizon * obs_dim)
+
+            if self.flow_map_policy is not None:
+                # one network evaluation replaces the whole denoise loop below
+                noisy_action_seq = self.flow_map_policy.generate_actions(
+                    obs_cond, self.pred_horizon, self.act_dim
+                )
+                start = self.obs_horizon - 1
+                end = start + self.act_horizon
+                return noisy_action_seq[:, start:end]
 
             # initialize action from Guassian noise
             noisy_action_seq = torch.randn((B, self.pred_horizon, self.act_dim), device=obs_seq.device)
