@@ -38,6 +38,23 @@ By default, most environments in ManiSkill generate 128x128 images or larger. Ho
 
 You can add `--no-include-state` to exclude any state based information from observations. Note however use this with caution as many environements have goal specification information that is part of the state.
 
+## Distributional Critic and Image Augmentation (D3D)
+
+Adapted from [Distributed Distributional DrQ](https://arxiv.org/abs/2404.10645), which finds that actor-critic-from-pixels benefits from two changes used together: a critic that predicts a **distribution over returns** rather than a scalar Q value, and DrQ-v2 style **random shift** image augmentation. Both are opt-in flags on `sac_rgbd.py` and can be toggled independently:
+
+```bash
+python sac_rgbd.py --env_id="PickCube-v1" --obs_mode="rgb" \
+  --num_envs=32 --utd=0.5 --buffer_size=300_000 \
+  --control-mode="pd_ee_delta_pos" --camera_width=64 --camera_height=64 \
+  --total_timesteps=1_000_000 --eval_freq=10_000 \
+  --distributional --n_quantiles 32 --shift-aug
+```
+
+- `--distributional` swaps each critic's output head for `--n_quantiles` atoms and replaces the MSE critic loss with a quantile-regression (Huber) loss against the TD target distribution. The entropy bonus is subtracted from every atom and the actor is driven by the mean of the learned distribution, so the rest of the SAC update is unchanged.
+- `--shift-aug` applies a random shift (pad 3, the same `ShiftAug` formulation used by the TD-MPC2 baseline) to the images of each batch sampled from the replay buffer. Only the sampled batch is augmented; stored observations are left exactly as rendered.
+
+Both default to off, so the default behavior of `sac_rgbd.py` is unchanged. These settings were not tuned for ManiSkill tasks; the paper's gains come from using both together, so `--distributional --shift-aug` is the configuration worth benchmarking.
+
 ## Citation
 
 If you use this baseline please cite the following

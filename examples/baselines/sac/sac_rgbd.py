@@ -24,6 +24,13 @@ import tyro
 
 import mani_skill.envs
 
+from distributional import (
+    DistributionalSoftQNetwork,
+    distributional_q_target,
+    quantile_regression_loss,
+    random_shift,
+)
+
 
 @dataclass
 class Args:
@@ -125,6 +132,12 @@ class Args:
     """whether to let parallel environments reset upon termination instead of truncation"""
     bootstrap_at_done: str = "always"
     """the bootstrap method to use when a done signal is received. Can be 'always' or 'never'"""
+    distributional: bool = False
+    """if toggled, critics predict a distribution over returns (quantile regression loss) instead of a scalar Q value"""
+    n_quantiles: int = 32
+    """number of quantile atoms each critic predicts when --distributional is toggled"""
+    shift_aug: bool = False
+    """if toggled, applies DrQ-v2 style random shift augmentation to images sampled from the replay buffer"""
     camera_width: Optional[int] = None
     """the width of the camera image. If none it will use the default the environment specifies"""
     camera_height: Optional[int] = None
@@ -368,6 +381,20 @@ class EncoderObsWrapper(nn.Module):
         img = img.permute(0, 3, 1, 2) # (B, C, H, W)
         return self.encoder(img)
 
+def shift_aug_obs(obs, pad: int = 3):
+    """Applies random shift augmentation (DrQ-v2 style) to every image in an observation dict.
+
+    Images are stored channel-last (B, H, W, C) so they are permuted to (B, C, H, W)
+    for the shift and permuted back. Non-image entries such as the state vector are
+    passed through untouched.
+    """
+    new_obs = {}
+    for k, v in obs.items():
+        if k in ("rgb", "depth"):
+            v = random_shift(v.permute(0, 3, 1, 2), pad=pad).permute(0, 2, 3, 1).to(obs[k].dtype)
+        new_obs[k] = v
+    return new_obs
+
 def make_mlp(in_channels, mlp_channels, act_builder=nn.ReLU, last_act=True):
     c_in = in_channels
     module_list = []
@@ -567,10 +594,14 @@ if __name__ == "__main__":
 
     # architecture is all actor, q-networks share the same vision encoder. Output of encoder is concatenates with any state data followed by separate MLPs.
     actor = Actor(envs, sample_obs=obs).to(device)
-    qf1 = SoftQNetwork(envs, actor.encoder).to(device)
-    qf2 = SoftQNetwork(envs, actor.encoder).to(device)
-    qf1_target = SoftQNetwork(envs, actor.encoder).to(device)
-    qf2_target = SoftQNetwork(envs, actor.encoder).to(device)
+    if args.distributional:
+        qf_network = lambda envs, encoder: DistributionalSoftQNetwork(envs, encoder, n_quantiles=args.n_quantiles)
+    else:
+        qf_network = SoftQNetwork
+    qf1 = qf_network(envs, actor.encoder).to(device)
+    qf2 = qf_network(envs, actor.encoder).to(device)
+    qf1_target = qf_network(envs, actor.encoder).to(device)
+    qf2_target = qf_network(envs, actor.encoder).to(device)
     if args.checkpoint is not None:
         ckpt = torch.load(args.checkpoint)
         actor.load_state_dict(ckpt['actor'])
@@ -697,19 +728,47 @@ if __name__ == "__main__":
             global_update += 1
             data = rb.sample(args.batch_size)
 
+            if args.shift_aug:
+                # augment the images of the sampled batch, leaving the state as is
+                data = ReplayBufferSample(
+                    obs=shift_aug_obs(data.obs),
+                    next_obs=shift_aug_obs(data.next_obs),
+                    actions=data.actions,
+                    rewards=data.rewards,
+                    dones=data.dones,
+                )
+
             # update the value networks
             with torch.no_grad():
                 next_state_actions, next_state_log_pi, _, visual_feature = actor.get_action(data.next_obs)
                 qf1_next_target = qf1_target(data.next_obs, next_state_actions, visual_feature)
                 qf2_next_target = qf2_target(data.next_obs, next_state_actions, visual_feature)
-                min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
-                next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target).view(-1)
+                if args.distributional:
+                    # entropy bonus is subtracted from every quantile of the target distribution
+                    next_q_value = distributional_q_target(
+                        qf1_next_target - alpha * next_state_log_pi,
+                        qf2_next_target - alpha * next_state_log_pi,
+                        data.rewards,
+                        data.dones,
+                        args.gamma,
+                    )
+                else:
+                    min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
+                    next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target).view(-1)
                 # data.dones is "stop_bootstrap", which is computed earlier according to args.bootstrap_at_done
             visual_feature = actor.encoder(data.obs)
-            qf1_a_values = qf1(data.obs, data.actions, visual_feature).view(-1)
-            qf2_a_values = qf2(data.obs, data.actions, visual_feature).view(-1)
-            qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
-            qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
+            qf1_a_values = qf1(data.obs, data.actions, visual_feature)
+            qf2_a_values = qf2(data.obs, data.actions, visual_feature)
+            if args.distributional:
+                qf1_a_values = qf1_a_values.view(-1, args.n_quantiles)
+                qf2_a_values = qf2_a_values.view(-1, args.n_quantiles)
+                qf1_loss = quantile_regression_loss(qf1_a_values, next_q_value)
+                qf2_loss = quantile_regression_loss(qf2_a_values, next_q_value)
+            else:
+                qf1_a_values = qf1_a_values.view(-1)
+                qf2_a_values = qf2_a_values.view(-1)
+                qf1_loss = F.mse_loss(qf1_a_values, next_q_value)
+                qf2_loss = F.mse_loss(qf2_a_values, next_q_value)
             qf_loss = qf1_loss + qf2_loss
 
             q_optimizer.zero_grad()
@@ -721,7 +780,11 @@ if __name__ == "__main__":
                 pi, log_pi, _, visual_feature = actor.get_action(data.obs)
                 qf1_pi = qf1(data.obs, pi, visual_feature, detach_encoder=True)
                 qf2_pi = qf2(data.obs, pi, visual_feature, detach_encoder=True)
-                min_qf_pi = torch.min(qf1_pi, qf2_pi).view(-1)
+                if args.distributional:
+                    # the actor is driven by the expected value of the learned return distribution
+                    min_qf_pi = torch.min(qf1_pi, qf2_pi).mean(dim=-1).view(-1)
+                else:
+                    min_qf_pi = torch.min(qf1_pi, qf2_pi).view(-1)
                 actor_loss = ((alpha * log_pi) - min_qf_pi).mean()
 
                 actor_optimizer.zero_grad()
