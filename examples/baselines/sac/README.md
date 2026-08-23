@@ -38,6 +38,22 @@ By default, most environments in ManiSkill generate 128x128 images or larger. Ho
 
 You can add `--no-include-state` to exclude any state based information from observations. Note however use this with caution as many environements have goal specification information that is part of the state.
 
+## Multi-State TD Target
+
+By default the critic regresses onto the standard one-step TD target. Setting `--td_horizon=L` (L > 1) switches `sac.py` to the multi-state TD target, which averages the L truncated l-step targets instead of committing to a single horizon:
+
+$$y_t = \frac{1}{L}\sum_{l=1}^{L}\Big[\sum_{i=0}^{l-1}\gamma^i r_{t+i} + \gamma^l V(s_{t+l})\Big]$$
+
+Averaging across horizons keeps the variance reduction of multi-step returns without having to pick one bias point. Lookahead windows are read from the same replay buffer the baseline already fills, and episode boundaries are handled with the same `stop_bootstrap` flags the one-step target uses, so no extra data is stored. `V(s_{t+l})` is the baseline's own double target critic minus the entropy term, evaluated on a sampled next action.
+
+```bash
+python sac.py --env_id="PickCube-v1" --td_horizon=3 \
+  --num_envs=32 --utd=0.5 --buffer_size=500_000 \
+  --total_timesteps=500_000 --eval_freq=50_000 --control-mode="pd_ee_delta_pos"
+```
+
+`--td_horizon=1` (the default) reproduces the unmodified baseline exactly.
+
 ## Citation
 
 If you use this baseline please cite the following

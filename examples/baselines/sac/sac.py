@@ -22,6 +22,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import tyro
 
+from multi_state_td import MultiStateTD
+
 import mani_skill.envs
 
 
@@ -119,6 +121,8 @@ class Args:
     """whether to let parallel environments reset upon termination instead of truncation"""
     bootstrap_at_done: str = "always"
     """the bootstrap method to use when a done signal is received. Can be 'always' or 'never'"""
+    td_horizon: int = 1
+    """number of lookahead steps L averaged in the critic TD target (1 = standard one-step target)"""
 
     # to be filled in runtime
     grad_steps_per_iteration: int = 0
@@ -372,6 +376,7 @@ if __name__ == "__main__":
         storage_device=torch.device(args.buffer_device),
         sample_device=device
     )
+    mstd = MultiStateTD(horizon=args.td_horizon)
 
 
     # TRY NOT TO MODIFY: start the game
@@ -477,7 +482,7 @@ if __name__ == "__main__":
         learning_has_started = True
         for local_update in range(args.grad_steps_per_iteration):
             global_update += 1
-            data = rb.sample(args.batch_size)
+            data = mstd.sample(rb, args.batch_size) if args.td_horizon > 1 else rb.sample(args.batch_size)
 
             # update the value networks
             with torch.no_grad():
@@ -485,8 +490,12 @@ if __name__ == "__main__":
                 qf1_next_target = qf1_target(data.next_obs, next_state_actions)
                 qf2_next_target = qf2_target(data.next_obs, next_state_actions)
                 min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - alpha * next_state_log_pi
-                next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target).view(-1)
-                # data.dones is "stop_bootstrap", which is computed earlier according to args.bootstrap_at_done
+                if args.td_horizon > 1:
+                    # multi-state TD target: average of the L l-step targets (MSTD, Eq. 14/15)
+                    next_q_value = mstd.td_target(data, args.gamma, min_qf_next_target)
+                else:
+                    next_q_value = data.rewards.flatten() + (1 - data.dones.flatten()) * args.gamma * (min_qf_next_target).view(-1)
+                    # data.dones is "stop_bootstrap", which is computed earlier according to args.bootstrap_at_done
 
             qf1_a_values = qf1(data.obs, data.actions).view(-1)
             qf2_a_values = qf2(data.obs, data.actions).view(-1)
