@@ -89,6 +89,18 @@ observed_landing_zones:
     branch: multilinear-mixture-of-experts-scalable-expert-specializatio
     timestamp: '2026-08-22T17:32:40Z'
   last_observed: '2026-08-22T17:32:40Z'
+- path: mani_skill/envs/
+  shape_tags:
+  - library-shape-public-api
+  confirmed_by:
+  - arxiv: 2607.02205v1
+    mode: Mode 2 (adapted port)
+    call_site_specifics: "mani_skill/envs/sim2real_env.py:202-207 \u2014 Sim2RealEnv._step_action\
+      \ forwards sim drive targets through the shaper before agent.set_target_qpos;\
+      \ Sim2RealEnv.reset (line 243-246) reseeds it"
+    branch: actuator-reality-shaping-for-zero-shot-sim-to-real-robot-lea
+    timestamp: '2026-08-24T18:26:18Z'
+  last_observed: '2026-08-24T18:26:18Z'
 rejected_shapes: []
 coordination_signals: []
-last_updated: '2026-08-23T22:06:35Z'
+last_updated: '2026-08-24T18:26:18Z'
