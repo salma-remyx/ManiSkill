@@ -16,6 +16,35 @@ python sac.py --env_id="PickCube-v1" \
   --total_timesteps=500_000 --eval_freq=50_000 --control-mode="pd_ee_delta_pos" 
 ```
 
+## Counterfactual Experience Augmentation
+
+Off-policy replay stores one outcome per visited state-action pair, so the update never
+sees what the environment would have done under the actions that were not taken. Toggling
+`--counterfactual-augmentation` relaxes that: every few gradient updates, unexecuted
+actions are proposed in underexplored regions of the action space, their outcomes are
+predicted with a linear residual dynamics model fitted on freshly sampled replay, and the
+surviving transitions are written back into the same replay buffer the update samples
+from. Rewards are copied from the nearest real next state rather than predicted, and
+predictions whose dynamics model explains too little of the real transition are dropped,
+so the supplementation rate grows on its own as real experience accumulates.
+
+```bash
+python sac.py --env_id="PickCube-v1" \
+  --num_envs=32 --utd=0.5 --buffer_size=500_000 \
+  --total_timesteps=500_000 --eval_freq=50_000 --control-mode="pd_ee_delta_pos" \
+  --counterfactual-augmentation
+```
+
+`--counterfactual-states` (default 32) sets how many replayed states each augmentation
+step expands, `--counterfactual-actions` (default 4) how many unexecuted actions to
+generate per state, and `--counterfactual-freq` (default 4) how often in gradient updates
+to run it. The number of synthetic transitions written so far is logged under
+`counterfactual/added`. Adapted from [Counterfactual Experience Augmented Off-Policy
+Reinforcement Learning](https://arxiv.org/abs/2503.13842) (Lee, Gong & Deng, 2025), which
+models state-transition differences with a VAE; the closed-form linear residual model used
+here carries the same conditional mean with matched noise standing in for the latent
+randomness.
+
 ## Vision Based RL (RGBD)
 
 Below is a sample of various commands for training a image-based policy with SAC that are lightly tuned. You will need to tune the buffer size accordingly as image based observations can take up a lot of memory. The settings below should all take less than 16GB of GPU memory. The examples.sh file has a full list of tested commands for running visual based SAC successfully on many tasks. Change the `--obs_mode` argument to "rgb", "rgb+depth", "depth" to train on RGB or RGBD observations or Depth observations. 

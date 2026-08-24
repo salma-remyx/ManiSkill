@@ -119,6 +119,14 @@ class Args:
     """whether to let parallel environments reset upon termination instead of truncation"""
     bootstrap_at_done: str = "always"
     """the bootstrap method to use when a done signal is received. Can be 'always' or 'never'"""
+    counterfactual_augmentation: bool = False
+    """if toggled, synthetic transitions generated from unexecuted actions are added to the replay buffer before each update"""
+    counterfactual_states: int = 32
+    """how many replayed states each counterfactual augmentation step expands"""
+    counterfactual_actions: int = 4
+    """how many unexecuted actions to generate per expanded state"""
+    counterfactual_freq: int = 4
+    """how often (in gradient updates) to run counterfactual augmentation"""
 
     # to be filled in runtime
     grad_steps_per_iteration: int = 0
@@ -151,6 +159,9 @@ class ReplayBuffer:
         self.values = torch.zeros((self.per_env_buffer_size, self.num_envs)).to(storage_device)
 
     def add(self, obs: torch.Tensor, next_obs: torch.Tensor, action: torch.Tensor, reward: torch.Tensor, done: torch.Tensor):
+        # `obs` may cover a single step (num_envs, ...) or several consecutive
+        # steps (rows, num_envs, ...); the latter lets synthetic transitions
+        # be written in one shot instead of row by row.
         if self.storage_device == torch.device("cpu"):
             obs = obs.cpu()
             next_obs = next_obs.cpu()
@@ -158,17 +169,48 @@ class ReplayBuffer:
             reward = reward.cpu()
             done = done.cpu()
 
-        self.obs[self.pos] = obs
-        self.next_obs[self.pos] = next_obs
-
-        self.actions[self.pos] = action
-        self.rewards[self.pos] = reward
-        self.dones[self.pos] = done
-
-        self.pos += 1
-        if self.pos == self.per_env_buffer_size:
+        # A single step arrives as (num_envs, ...) with a per-env scalar
+        # reward/done; a block of synthetic steps arrives as (rows, num_envs,
+        # ...). Telling them apart by the env axis keeps either reward
+        # convention ((num_envs,) or (num_envs, 1)) on the single-step path.
+        if obs.ndim > 2 and obs.shape[1] != self.num_envs:
+            raise ValueError(
+                f"expected axis 1 of obs to hold {self.num_envs} envs, got shape {tuple(obs.shape)}"
+            )
+        if obs.ndim == 2:
+            obs = obs[None]
+            next_obs = next_obs[None]
+            action = action[None]
+            reward = reward[None]
+            done = done[None]
+        # The vector env may deliver scalars with a trailing axis
+        # ((num_envs, 1)); the buffer stores them flat like the original
+        # row assignment did.
+        if reward.shape[-1] == 1 and reward.ndim == obs.ndim:
+            reward = reward.squeeze(-1)
+        if done.shape[-1] == 1 and done.ndim == obs.ndim:
+            done = done.squeeze(-1)
+        rows = obs.shape[0]
+        end = self.pos + rows
+        if end > self.per_env_buffer_size:
             self.full = True
-            self.pos = 0
+            # Wrap the block around the ring so no slot is skipped.
+            keep = self.per_env_buffer_size - self.pos
+            self._write(self.pos, self.per_env_buffer_size, obs, next_obs, action, reward, done)
+            self._write(0, end - self.per_env_buffer_size, obs, next_obs, action, reward, done, offset=keep)
+        else:
+            if end == self.per_env_buffer_size:
+                self.full = True
+            self._write(self.pos, end, obs, next_obs, action, reward, done)
+        self.pos = end % self.per_env_buffer_size
+
+    def _write(self, start: int, stop: int, obs, next_obs, action, reward, done, offset: int = 0):
+        self.obs[start:stop] = obs[offset:offset + (stop - start)]
+        self.next_obs[start:stop] = next_obs[offset:offset + (stop - start)]
+        self.actions[start:stop] = action[offset:offset + (stop - start)]
+        self.rewards[start:stop] = reward[offset:offset + (stop - start)]
+        self.dones[start:stop] = done[offset:offset + (stop - start)]
+
     def sample(self, batch_size: int):
         if self.full:
             batch_inds = torch.randint(0, self.per_env_buffer_size, size=(batch_size, ))
@@ -373,12 +415,22 @@ if __name__ == "__main__":
         sample_device=device
     )
 
+    counterfactual = None
+    if args.counterfactual_augmentation:
+        from counterfactual_replay import CounterfactualAugmenter
+
+        counterfactual = CounterfactualAugmenter(
+            env=envs,
+            device=device,
+            k_actions=args.counterfactual_actions,
+        )
 
     # TRY NOT TO MODIFY: start the game
     obs, info = envs.reset(seed=args.seed) # in Gymnasium, seed is given to reset() instead of seed()
     eval_obs, _ = eval_envs.reset(seed=args.seed)
     global_step = 0
     global_update = 0
+    cf_added_total = 0
     learning_has_started = False
 
     global_steps_per_iteration = args.num_envs * (args.steps_per_env)
@@ -477,6 +529,9 @@ if __name__ == "__main__":
         learning_has_started = True
         for local_update in range(args.grad_steps_per_iteration):
             global_update += 1
+            if counterfactual is not None and global_update % args.counterfactual_freq == 0:
+                cf_added = counterfactual.step(rb, args.counterfactual_states)
+                cf_added_total += cf_added
             data = rb.sample(args.batch_size)
 
             # update the value networks
@@ -542,6 +597,9 @@ if __name__ == "__main__":
             logger.add_scalar("losses/qf_loss", qf_loss.item() / 2.0, global_step)
             logger.add_scalar("losses/actor_loss", actor_loss.item(), global_step)
             logger.add_scalar("losses/alpha", alpha, global_step)
+            if counterfactual is not None:
+                logger.add_scalar("counterfactual/added", cf_added_total, global_step)
+                logger.add_scalar("counterfactual/added_per_real", cf_added_total / max(global_step, 1), global_step)
             logger.add_scalar("time/update_time", update_time, global_step)
             logger.add_scalar("time/rollout_time", rollout_time, global_step)
             logger.add_scalar("time/rollout_fps", global_steps_per_iteration / rollout_time, global_step)
