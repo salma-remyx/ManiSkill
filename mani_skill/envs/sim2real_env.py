@@ -9,6 +9,7 @@ from mani_skill.agents.base_real_agent import BaseRealAgent
 from mani_skill.envs.sapien_env import BaseEnv
 from mani_skill.sensors.camera import Camera, CameraConfig
 from mani_skill.utils import common
+from mani_skill.utils.actuator_reference_shaping import ActuatorReferenceShaper
 from mani_skill.utils.logging_utils import logger
 
 
@@ -44,6 +45,9 @@ class Sim2RealEnv(gym.Env):
         skip_data_checks (bool): If False, this will reset the sim and real environments once to check if observations are aligned. It is recommended
             to keep this False.
         control_freq (Optional[int]): The control frequency of the real robot. By default this is None and we use the same control frequency as the simulation environment.
+        actuator_shaper (Optional[ActuatorReferenceShaper]): If given, real joint commands are shaped by this shaper before being sent to the robot,
+            so the real actuators follow the same idealized second-order reference dynamics the policy was trained against in simulation. By default
+            this is None and the raw simulator drive targets are sent to the real robot.
 
     """
 
@@ -62,6 +66,7 @@ class Sim2RealEnv(gym.Env):
         render_mode: Optional[str] = "sensors",
         skip_data_checks: bool = False,
         control_freq: Optional[int] = None,
+        actuator_shaper: Optional[ActuatorReferenceShaper] = None,
     ):
         self.sim_env = sim_env
         self.num_envs = 1
@@ -77,6 +82,8 @@ class Sim2RealEnv(gym.Env):
         # control timing
         self.control_dt = 1 / self.control_freq
         self.last_control_time: Optional[float] = None
+
+        self.actuator_shaper = actuator_shaper
 
         obs_mode = self.base_sim_env.obs_mode
         reward_mode = self.base_sim_env.reward_mode
@@ -191,7 +198,15 @@ class Sim2RealEnv(gym.Env):
                 )
         self.last_control_time = time.perf_counter()
         if self.agent.controller.sets_target_qpos:
-            self.agent.set_target_qpos(sim_articulation.drive_targets)
+            drive_targets = sim_articulation.drive_targets
+            if self.actuator_shaper is not None:
+                # shape the real joint command so the real closed loop follows
+                # the idealized dynamics the policy was trained against,
+                # instead of forwarding the raw sim target
+                drive_targets = self.actuator_shaper.compute_command(
+                    drive_targets, self.agent.robot.qpos
+                )
+            self.agent.set_target_qpos(drive_targets)
         if self.agent.controller.sets_target_qvel:
             self.agent.set_target_qvel(sim_articulation.drive_velocities)
 
@@ -225,6 +240,10 @@ class Sim2RealEnv(gym.Env):
         # moreover some properties of the robot like forward kinematic computed poses are done through the simulated robot and so qpos has to be up to date
         self.base_sim_env.agent.robot.set_qpos(self.agent.robot.qpos)
         self.agent.controller.reset()
+        if self.actuator_shaper is not None:
+            # restart the idealized reference model from wherever the real
+            # robot actually reset to
+            self.actuator_shaper.reset(self.agent.robot.qpos)
         return ret
 
     # -------------------------------------------------------------------------- #
